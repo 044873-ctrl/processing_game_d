@@ -1,176 +1,98 @@
-let canvasSide = 600;
-let blockSide = canvasSide / 20;
-let rows = canvasSide / blockSide;
-let cols = canvasSide / blockSide;
-let grid = create2DArray(rows, cols);
-let current;
-let score = 0;
+let player;
+let bullets = [];
+let enemies = [];
 
 function setup() {
-  createCanvas(canvasSide, canvasSide);
-  frameRate(5);
-  current = new Block();
+  createCanvas(800, 600);
+  player = new Player();
+  
+  for(let i = 0; i < 10; i++){
+    let x = random(width);
+    let y = random(height);
+    enemies[i] = new Enemy(x, y);
+  }
 }
 
 function draw() {
-  background(51);
-  current.show();
-  current.update();
-  for (let i = rows - 1; i >= 0; i--) {
-    for (let j = cols - 1; j >= 0; j--) {
-      if (grid[i][j]) {
-        fill(255);
-        rect(j * blockSide, i * blockSide, blockSide, blockSide);
+  background(0);
+  
+  player.show();
+  player.move();
+
+  for(let i = bullets.length-1; i >= 0; i--) {
+    bullets[i].show();
+    bullets[i].move();
+    
+    for(let j = enemies.length-1; j >= 0; j--) {
+      if(bullets[i].hits(enemies[j])) {
+        enemies.splice(j, 1);
+        bullets.splice(i, 1);
+        break;
       }
     }
   }
-  checkGameOver();
-  checkRows();
-}
-
-function keyPressed() {
-  if (keyCode === DOWN_ARROW) {
-    current.moveDown();
-  } else if (keyCode === RIGHT_ARROW) {
-    current.moveRight();
-  } else if (keyCode === LEFT_ARROW) {
-    current.moveLeft();
-  } else if (keyCode === UP_ARROW) {
-    current.rotate();
+  
+  for(let enemy of enemies) {
+    enemy.show();
+    enemy.move();
   }
 }
 
-function checkGameOver() {
-  for (let i = 0; i < cols; i++) {
-    if (grid[0][i]) {
-      noLoop();
-      alert("Game Over. Your score is " + score);
-    }
+function keyReleased() {
+  if(key == ' ') {
+    let bullet = new Bullet(player.x, height);
+    bullets.push(bullet);
   }
 }
 
-function checkRows() {
-  for (let i = rows - 1; i >= 0; i--) {
-    let full = true;
-    for (let j = cols - 1; j >= 0; j--) {
-      if (!grid[i][j]) {
-        full = false;
-      }
-    }
-    if (full) {
-      score++;
-      grid.splice(i, 1);
-      grid.unshift(new Array(cols).fill(false));
-    }
-  }
-}
+function Player() {
+  this.x = width / 2;
 
-function create2DArray(rows, cols) {
-  let arr = new Array(rows);
-  for (let i = 0; i < arr.length; i++) {
-    arr[i] = new Array(cols).fill(false);
-  }
-  return arr;
-}
-
-class Block {
-  constructor() {
-    this.squares = this.newBlock();
-    this.topLeft = createVector(cols / 2 - 1, 0);
-  }
-
-  newBlock() {
-    let blocks = [
-      // long vertical block
-      [createVector(0, 0), createVector(0, 1), createVector(0, 2), createVector(0, 3)],
-      // square block
-      [createVector(0, 0), createVector(1, 0), createVector(0, 1), createVector(1, 1)],
-      // T block
-      [createVector(1, 0), createVector(0, 1), createVector(1, 1), createVector(2, 1)],
-      // Z block
-      [createVector(0, 0), createVector(1, 0), createVector(1, 1), createVector(2, 1)],
-      // S block
-      [createVector(1, 0), createVector(2, 0), createVector(0, 1), createVector(1, 1)],
-      // J block
-      [createVector(0, 0), createVector(0, 1), createVector(1, 1), createVector(2, 1)],
-      // L block
-      [createVector(2, 0), createVector(0, 1), createVector(1, 1), createVector(2, 1)]
-    ];
-    return blocks[floor(random(blocks.length))];
-  }
-
-  show() {
+  this.show = function() {
     fill(255);
-    for (let i = 0; i < this.squares.length; i++) {
-      let pos = p5.Vector.add(this.squares[i], this.topLeft);
-      rect(pos.x * blockSide, pos.y * blockSide, blockSide, blockSide);
-    }
+    rect(this.x, height - 20, 20, 20);
   }
 
-  update() {
-    if (this.canMoveDown()) {
-      this.topLeft.y++;
-    } else {
-      this.merge();
-      current = new Block();
+  this.move = function() {
+    if(keyIsDown(LEFT_ARROW)) {
+      this.x -= 5;
+    } else if(keyIsDown(RIGHT_ARROW)) {
+      this.x += 5;
     }
   }
+}
 
-  canMoveDown() {
-    this.topLeft.y++;
-    let result = this.isValid();
-    this.topLeft.y--;
-    return result;
+function Bullet(x, y) {
+  this.x = x;
+  this.y = y;
+
+  this.show = function() {
+    fill(255);
+    ellipse(this.x, this.y, 8, 8);
   }
 
-  merge() {
-    for (let i = 0; i < this.squares.length; i++) {
-      let pos = p5.Vector.add(this.squares[i], this.topLeft);
-      grid[pos.y][pos.x] = true;
-    }
+  this.move = function() {
+    this.y -= 5;
   }
 
-  isValid() {
-    for (let i = 0; i < this.squares.length; i++) {
-      let pos = p5.Vector.add(this.squares[i], this.topLeft);
-      if (!pos.x < 0 || pos.x >= cols || pos.y >= rows || grid[pos.y][pos.x]) {
-        return false;
-      }
-    }
-    return true;
+  this.hits = function(enemy) {
+    let d = dist(this.x, this.y, enemy.x, enemy.y);
+    return (d < enemy.r);
+  }
+}
+
+function Enemy(x, y) {
+  this.x = x;
+  this.y = y;
+  this.r = 30;
+  this.speed = 2;
+
+  this.show = function() {
+    fill(255, 0, 0);
+    ellipse(this.x, this.y, this.r*2, this.r*2);
   }
 
-  moveDown() {
-    if (this.canMoveDown()) {
-      this.topLeft.y++;
-    }
-  }
-
-  moveRight() {
-    this.topLeft.x++;
-    if (!this.isValid()) {
-      this.topLeft.x--;
-    }
-  }
-
-  moveLeft() {
-    this.topLeft.x--;
-    if (!this.isValid()) {
-      this.topLeft.x++;
-    }
-  }
-
-  rotate() {
-    let pivot = this.squares[1];
-    for (let i = 0; i < this.squares.length; i++) {
-      let rel = p5.Vector.sub(this.squares[i], pivot);
-      this.squares[i] = createVector(rel.y, -rel.x);
-    }
-    if (!this.isValid()) {
-      for (let i = 0; i < this.squares.length; i++) {
-        let rel = p5.Vector.sub(this.squares[i], pivot);
-        this.squares[i] = createVector(-rel.y, rel.x);
-      }
-    }
+  this.move = function() {
+    this.y += this.speed;
   }
 }
