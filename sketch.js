@@ -1,95 +1,176 @@
-let unit = 20;
-let grid;
+let canvasSide = 600;
+let blockSide = canvasSide / 20;
+let rows = canvasSide / blockSide;
+let cols = canvasSide / blockSide;
+let grid = create2DArray(rows, cols);
 let current;
 let score = 0;
 
 function setup() {
-  createCanvas(400, 800);
-  grid = Array(40).fill().map(() => Array(20).fill(0));
-  current = new Piece();
+  createCanvas(canvasSide, canvasSide);
+  frameRate(5);
+  current = new Block();
 }
 
 function draw() {
-  background(220);
+  background(51);
   current.show();
   current.update();
-  
-  for (let i = 0; i < grid.length; i++) {
-    for (let j = 0; j < grid[0].length; j++) {
-      if (grid[i][j] !== 0) {
-        fill(255, 100, 100);
-        rect(j*unit, i*unit, unit, unit);
+  for (let i = rows - 1; i >= 0; i--) {
+    for (let j = cols - 1; j >= 0; j--) {
+      if (grid[i][j]) {
+        fill(255);
+        rect(j * blockSide, i * blockSide, blockSide, blockSide);
       }
     }
   }
-  checkLines();
+  checkGameOver();
+  checkRows();
 }
 
-function checkLines() {
-  for (let i = grid.length - 1; i >= 0; i--) {
-    if (grid[i].every(val => val === 1)) {
-      score++;
-      grid.splice(i, 1);
-      grid.unshift(Array(20).fill(0));
+function keyPressed() {
+  if (keyCode === DOWN_ARROW) {
+    current.moveDown();
+  } else if (keyCode === RIGHT_ARROW) {
+    current.moveRight();
+  } else if (keyCode === LEFT_ARROW) {
+    current.moveLeft();
+  } else if (keyCode === UP_ARROW) {
+    current.rotate();
+  }
+}
+
+function checkGameOver() {
+  for (let i = 0; i < cols; i++) {
+    if (grid[0][i]) {
+      noLoop();
+      alert("Game Over. Your score is " + score);
     }
   }
 }
 
-class Piece {
+function checkRows() {
+  for (let i = rows - 1; i >= 0; i--) {
+    let full = true;
+    for (let j = cols - 1; j >= 0; j--) {
+      if (!grid[i][j]) {
+        full = false;
+      }
+    }
+    if (full) {
+      score++;
+      grid.splice(i, 1);
+      grid.unshift(new Array(cols).fill(false));
+    }
+  }
+}
+
+function create2DArray(rows, cols) {
+  let arr = new Array(rows);
+  for (let i = 0; i < arr.length; i++) {
+    arr[i] = new Array(cols).fill(false);
+  }
+  return arr;
+}
+
+class Block {
   constructor() {
-    this.x = 5;
-    this.y = 0;
-    this.shape = [
-      [1, 1, 1, 1]
+    this.squares = this.newBlock();
+    this.topLeft = createVector(cols / 2 - 1, 0);
+  }
+
+  newBlock() {
+    let blocks = [
+      // long vertical block
+      [createVector(0, 0), createVector(0, 1), createVector(0, 2), createVector(0, 3)],
+      // square block
+      [createVector(0, 0), createVector(1, 0), createVector(0, 1), createVector(1, 1)],
+      // T block
+      [createVector(1, 0), createVector(0, 1), createVector(1, 1), createVector(2, 1)],
+      // Z block
+      [createVector(0, 0), createVector(1, 0), createVector(1, 1), createVector(2, 1)],
+      // S block
+      [createVector(1, 0), createVector(2, 0), createVector(0, 1), createVector(1, 1)],
+      // J block
+      [createVector(0, 0), createVector(0, 1), createVector(1, 1), createVector(2, 1)],
+      // L block
+      [createVector(2, 0), createVector(0, 1), createVector(1, 1), createVector(2, 1)]
     ];
+    return blocks[floor(random(blocks.length))];
   }
 
   show() {
     fill(255);
-    for (let i = 0; i < this.shape.length; i++) {
-      for (let j = 0; j < this.shape[i].length; j++) {
-        if (this.shape[i][j] !== 0) {
-          rect((this.x + j)*unit, (this.y + i)*unit, unit, unit);
-        }
-      }
+    for (let i = 0; i < this.squares.length; i++) {
+      let pos = p5.Vector.add(this.squares[i], this.topLeft);
+      rect(pos.x * blockSide, pos.y * blockSide, blockSide, blockSide);
     }
   }
 
   update() {
-    this.y++;
-    if (this.collision(0, 1)) {
-      this.y--;
+    if (this.canMoveDown()) {
+      this.topLeft.y++;
+    } else {
       this.merge();
-      this.reset();
+      current = new Block();
     }
   }
 
-  reset() {
-    this.y = 0;
-    this.x = 5;
-    this.shape = [[1, 1, 1, 1]];
+  canMoveDown() {
+    this.topLeft.y++;
+    let result = this.isValid();
+    this.topLeft.y--;
+    return result;
   }
 
   merge() {
-    for (let i = 0; i < this.shape.length; i++) {
-      for (let j = 0; j < this.shape[i].length; j++) {
-        if (this.shape[i][j] !== 0) {
-          grid[this.y + i][this.x + j] = 1;
-        }
-      }
+    for (let i = 0; i < this.squares.length; i++) {
+      let pos = p5.Vector.add(this.squares[i], this.topLeft);
+      grid[pos.y][pos.x] = true;
     }
   }
 
-  collision(dx, dy) {
-    for (let i = 0; i < this.shape.length; i++) {
-      for (let j = 0; j < this.shape[i].length; j++) {
-        let x = this.x + j + dx;
-        let y = this.y + i + dy;
-        if (this.shape[i][j] && (grid[y] && grid[y][x]) !== 0) {
-          return true;
-        }
+  isValid() {
+    for (let i = 0; i < this.squares.length; i++) {
+      let pos = p5.Vector.add(this.squares[i], this.topLeft);
+      if (!pos.x < 0 || pos.x >= cols || pos.y >= rows || grid[pos.y][pos.x]) {
+        return false;
       }
     }
-    return false;
+    return true;
+  }
+
+  moveDown() {
+    if (this.canMoveDown()) {
+      this.topLeft.y++;
+    }
+  }
+
+  moveRight() {
+    this.topLeft.x++;
+    if (!this.isValid()) {
+      this.topLeft.x--;
+    }
+  }
+
+  moveLeft() {
+    this.topLeft.x--;
+    if (!this.isValid()) {
+      this.topLeft.x++;
+    }
+  }
+
+  rotate() {
+    let pivot = this.squares[1];
+    for (let i = 0; i < this.squares.length; i++) {
+      let rel = p5.Vector.sub(this.squares[i], pivot);
+      this.squares[i] = createVector(rel.y, -rel.x);
+    }
+    if (!this.isValid()) {
+      for (let i = 0; i < this.squares.length; i++) {
+        let rel = p5.Vector.sub(this.squares[i], pivot);
+        this.squares[i] = createVector(-rel.y, rel.x);
+      }
+    }
   }
 }
