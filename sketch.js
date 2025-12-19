@@ -1,14 +1,19 @@
 let player;
-let bullets = [];
-let invaders = [];
-let invaderBullets = [];
-let score = 0;
+let playerBullets;
+let invaders;
+let invaderBullets;
+let score;
 
 function setup() {
   createCanvas(800, 600);
   player = new Player();
-  for (let i = 0; i < 12; i++) {
-    invaders[i] = new Invader(i * 70 + 70, 60);
+  playerBullets = [];
+  invaders = [];
+  invaderBullets = [];
+  score = 0;
+
+  for (let i = 0; i < 10; i++) {
+    invaders[i] = new Invader(i * 80 + 80, 60);
   }
 }
 
@@ -17,20 +22,21 @@ function draw() {
   player.show();
   player.move();
 
-  for (let i = bullets.length - 1; i >= 0; i--) {
-    bullets[i].show();
-    bullets[i].move();
+  for (let i = playerBullets.length - 1; i >= 0; i--) {
+    playerBullets[i].show();
+    playerBullets[i].move();
     for (let j = invaders.length - 1; j >= 0; j--) {
-      if (bullets[i].hits(invaders[j])) {
+      if (playerBullets[i].hits(invaders[j])) {
         invaders[j].destroy();
-        bullets[i].evaporate();
+        playerBullets[i].evaporate();
         score++;
       }
     }
   }
 
   let edge = false;
-  for (let i = 0; i < invaders.length; i++) {
+
+  for (let i = invaders.length - 1; i >= 0; i--) {
     invaders[i].show();
     invaders[i].move();
     if (invaders[i].x > width || invaders[i].x < 0) {
@@ -44,9 +50,9 @@ function draw() {
     }
   }
 
-  for (let i = bullets.length - 1; i >= 0; i--) {
-    if (bullets[i].toDelete) {
-      bullets.splice(i, 1);
+  for (let i = playerBullets.length - 1; i >= 0; i--) {
+    if (playerBullets[i].toDelete) {
+      playerBullets.splice(i, 1);
     }
   }
 
@@ -55,125 +61,40 @@ function draw() {
       invaders.splice(i, 1);
     }
   }
-  
-  for (let i = 0; i < invaders.length; i++) {
-    if (random(1) < 0.005) {
-      invaderBullets.push(new Bullet(invaders[i].x, invaders[i].y));
-    }
+
+  if (random(1) < 0.01) {
+    invaderBullets.push(new Bullet(invaders[0].x, invaders[0].y));
   }
 
   for (let i = invaderBullets.length - 1; i >= 0; i--) {
     invaderBullets[i].show();
     invaderBullets[i].move();
     if (invaderBullets[i].hits(player)) {
+      player.reset();
       invaderBullets[i].evaporate();
-      player = new Player();
     }
     if (invaderBullets[i].toDelete) {
       invaderBullets.splice(i, 1);
     }
   }
 
-  text('Score: ' + score, 10, 50);
+  textSize(32);
+  fill(255);
+  text("Score: " + score, 10, 30);
 }
 
 function keyPressed() {
-  if (key === ' ') {
-    let bullet = new Bullet(player.x, height);
-    bullets.push(bullet);
-  }
-
-  if (keyCode === RIGHT_ARROW) {
-    player.setDirection(1);
-  } else if (keyCode === LEFT_ARROW) {
-    player.setDirection(-1);
+  if (keyCode === LEFT_ARROW) {
+    player.setDir(-1);
+  } else if (keyCode === RIGHT_ARROW) {
+    player.setDir(1);
+  } else if (keyCode === 32) { // Spacebar
+    playerBullets.push(new Bullet(player.x, height));
   }
 }
 
 function keyReleased() {
-  if (key !== ' ') {
-    player.setDirection(0);
-  }
-}
-
-class Player {
-  constructor() {
-    this.x = width / 2;
-    this.y = height - 20;
-    this.xdir = 0;
-  }
-
-  show() {
-    fill(255);
-    rectMode(CENTER);
-    rect(this.x, this.y, 20, 60);
-  }
-
-  setDirection(dir) {
-    this.xdir = dir;
-  }
-
-  move() {
-    this.x += this.xdir*5;
-  }
-}
-
-class Invader {
-  constructor(x, y) {
-    this.x = x;
-    this.y = y;
-    this.r = 30;
-    this.toDelete = false;
-    this.xdir = 1;
-    this.ydir = 0;
-  }
-
-  destroy() {
-    this.toDelete = true;
-  }
-
-  shiftDown() {
-    this.xdir *= -1;
-    this.y += this.r;
-  }
-
-  move() {
-    this.x = this.x + this.xdir;
-  }
-
-  show() {
-    fill(255, 0, 200);
-    ellipse(this.x, this.y, this.r*2, this.r*2);
-  }
-}
-
-class Bullet {
-  constructor(x, y) {
-    this.x = x;
-    this.y = y;
-    this.r = 8;
-    this.toDelete = false;
-  }
-
-  evaporate() {
-    this.toDelete = true;
-  }
-
-  show() {
-    fill(150);
-    ellipse(this.x, this.y, this.r*2, this.r*2);
-  }
-
-  move() {
-    this.y = this.y - 5;
-  }
-
-  hits(invader) {
-    let d = dist(this.x, this.y, invader.x, invader.y);
-    if (d < this.r + invader.r) {
-      return true;
-    } else {
-      return false;
-    }
+  if (keyCode !== 32) {
+    player.setDir(0);
   }
 }
