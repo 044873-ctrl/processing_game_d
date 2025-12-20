@@ -1,178 +1,299 @@
-let invaders = [];
-let player;
-let playerBullets = [];
-let invaderBullets = [];
+let grid;
+let sizeGrid = 4;
+let tileSize = 100;
 let score = 0;
-
+let gameOver = false;
+function createEmptyGrid() {
+  let g = [];
+  for (let r = 0; r < sizeGrid; r++) {
+    let row = [];
+    for (let c = 0; c < sizeGrid; c++) {
+      row.push(0);
+    }
+    g.push(row);
+  }
+  return g;
+}
+function addRandomTile() {
+  let empties = [];
+  for (let r = 0; r < sizeGrid; r++) {
+    for (let c = 0; c < sizeGrid; c++) {
+      if (grid[r][c] === 0) {
+        empties.push([r, c]);
+      }
+    }
+  }
+  if (empties.length === 0) {
+    return;
+  }
+  let idx = Math.floor(Math.random() * empties.length);
+  let pos = empties[idx];
+  grid[pos[0]][pos[1]] = 2;
+}
+function compressLine(line) {
+  let res = [];
+  for (let i = 0; i < line.length; i++) {
+    if (line[i] !== 0) {
+      res.push(line[i]);
+    }
+  }
+  return res;
+}
+function arraysEqual(a, b) {
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) {
+      return false;
+    }
+  }
+  return true;
+}
+function moveLeft() {
+  let moved = false;
+  for (let r = 0; r < sizeGrid; r++) {
+    let original = grid[r].slice();
+    let line = grid[r].slice();
+    let comp = compressLine(line);
+    let merged = [];
+    let i = 0;
+    while (i < comp.length) {
+      if (i + 1 < comp.length && comp[i] === comp[i + 1]) {
+        let val = comp[i] * 2;
+        merged.push(val);
+        score += val;
+        i += 2;
+      } else {
+        merged.push(comp[i]);
+        i += 1;
+      }
+    }
+    while (merged.length < sizeGrid) {
+      merged.push(0);
+    }
+    grid[r] = merged;
+    if (!arraysEqual(original, grid[r])) {
+      moved = true;
+    }
+  }
+  return moved;
+}
+function moveRight() {
+  let moved = false;
+  for (let r = 0; r < sizeGrid; r++) {
+    let original = grid[r].slice();
+    let rev = grid[r].slice().reverse();
+    let comp = compressLine(rev);
+    let merged = [];
+    let i = 0;
+    while (i < comp.length) {
+      if (i + 1 < comp.length && comp[i] === comp[i + 1]) {
+        let val = comp[i] * 2;
+        merged.push(val);
+        score += val;
+        i += 2;
+      } else {
+        merged.push(comp[i]);
+        i += 1;
+      }
+    }
+    while (merged.length < sizeGrid) {
+      merged.push(0);
+    }
+    merged = merged.reverse();
+    grid[r] = merged;
+    if (!arraysEqual(original, grid[r])) {
+      moved = true;
+    }
+  }
+  return moved;
+}
+function moveUp() {
+  let moved = false;
+  for (let c = 0; c < sizeGrid; c++) {
+    let col = [];
+    for (let r = 0; r < sizeGrid; r++) {
+      col.push(grid[r][c]);
+    }
+    let original = col.slice();
+    let comp = compressLine(col);
+    let merged = [];
+    let i = 0;
+    while (i < comp.length) {
+      if (i + 1 < comp.length && comp[i] === comp[i + 1]) {
+        let val = comp[i] * 2;
+        merged.push(val);
+        score += val;
+        i += 2;
+      } else {
+        merged.push(comp[i]);
+        i += 1;
+      }
+    }
+    while (merged.length < sizeGrid) {
+      merged.push(0);
+    }
+    for (let r = 0; r < sizeGrid; r++) {
+      grid[r][c] = merged[r];
+    }
+    let newCol = [];
+    for (let r = 0; r < sizeGrid; r++) {
+      newCol.push(grid[r][c]);
+    }
+    if (!arraysEqual(original, newCol)) {
+      moved = true;
+    }
+  }
+  return moved;
+}
+function moveDown() {
+  let moved = false;
+  for (let c = 0; c < sizeGrid; c++) {
+    let col = [];
+    for (let r = 0; r < sizeGrid; r++) {
+      col.push(grid[r][c]);
+    }
+    let original = col.slice();
+    let rev = col.slice().reverse();
+    let comp = compressLine(rev);
+    let merged = [];
+    let i = 0;
+    while (i < comp.length) {
+      if (i + 1 < comp.length && comp[i] === comp[i + 1]) {
+        let val = comp[i] * 2;
+        merged.push(val);
+        score += val;
+        i += 2;
+      } else {
+        merged.push(comp[i]);
+        i += 1;
+      }
+    }
+    while (merged.length < sizeGrid) {
+      merged.push(0);
+    }
+    merged = merged.reverse();
+    for (let r = 0; r < sizeGrid; r++) {
+      grid[r][c] = merged[r];
+    }
+    let newCol = [];
+    for (let r = 0; r < sizeGrid; r++) {
+      newCol.push(grid[r][c]);
+    }
+    if (!arraysEqual(original, newCol)) {
+      moved = true;
+    }
+  }
+  return moved;
+}
+function canMove() {
+  for (let r = 0; r < sizeGrid; r++) {
+    for (let c = 0; c < sizeGrid; c++) {
+      if (grid[r][c] === 0) {
+        return true;
+      }
+    }
+  }
+  for (let r = 0; r < sizeGrid; r++) {
+    for (let c = 0; c < sizeGrid - 1; c++) {
+      if (grid[r][c] === grid[r][c + 1]) {
+        return true;
+      }
+    }
+  }
+  for (let c = 0; c < sizeGrid; c++) {
+    for (let r = 0; r < sizeGrid - 1; r++) {
+      if (grid[r][c] === grid[r + 1][c]) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+function initGame() {
+  grid = createEmptyGrid();
+  score = 0;
+  gameOver = false;
+  addRandomTile();
+  addRandomTile();
+}
+function drawTile(x, y, val) {
+  let bg;
+  if (val === 0) {
+    bg = color(200);
+  } else if (val === 2) {
+    bg = color(240, 230, 210);
+  } else if (val === 4) {
+    bg = color(240, 220, 180);
+  } else if (val === 8) {
+    bg = color(240, 160, 100);
+  } else if (val === 16) {
+    bg = color(240, 140, 90);
+  } else if (val === 32) {
+    bg = color(240, 120, 80);
+  } else if (val === 64) {
+    bg = color(240, 100, 60);
+  } else {
+    bg = color(50, 150, 200);
+  }
+  fill(bg);
+  stroke(120);
+  rect(x, y, tileSize - 4, tileSize - 4, 8);
+  if (val !== 0) {
+    fill(val <= 4 ? 50 : 255);
+    textSize(val < 128 ? 32 : 24);
+    textAlign(CENTER, CENTER);
+    text(val, x + (tileSize - 4) / 2, y + (tileSize - 4) / 2);
+  }
+}
 function setup() {
-  createCanvas(600, 400);
-  
-  player = new Player();
-  
-  for(let i=0; i<10; i++){
-    invaders[i] = new Invader(i*60+60, 60);
-  }
+  createCanvas(400, 400);
+  initGame();
 }
-
 function draw() {
-  background(0);
-  
-  player.show();
-  player.move();
-  
-  for(let invader of invaders){
-    invader.show();
-    invader.move();
-    
-    if(invader.y >= height){
-      invaders = [];
-      for(let i=0; i<10; i++){
-        invaders[i] = new Invader(i*60+60, 60);
-      }
-      score = 0;
+  background(180);
+  for (let r = 0; r < sizeGrid; r++) {
+    for (let c = 0; c < sizeGrid; c++) {
+      let x = c * tileSize + 10;
+      let y = r * tileSize + 10;
+      drawTile(x, y, grid[r][c]);
     }
   }
-  
-  for(let i=playerBullets.length-1; i>=0; i--){
-    playerBullets[i].show();
-    playerBullets[i].move();
-    
-    for(let j=invaders.length-1; j>=0; j--){
-      if(playerBullets[i].hits(invaders[j])){
-        score++;
-        invaders.splice(j, 1);
-        playerBullets.splice(i, 1);
-        break;
-      }
-    }
-  }
-  
-  for(let i=invaderBullets.length-1; i>=0; i--){
-    invaderBullets[i].show();
-    invaderBullets[i].move();
-    
-    if(invaderBullets[i].hits(player)){
-      invaderBullets.splice(i, 1);
-      player = new Player();
-    }
-  }
-  
-  if(random(1) < 0.001){
-    invaderBullets.push(new InvaderBullet(random(invaders).x, random(invaders).y));
-  }
-  
-  text(`Score: ${score}`, width-100, 50);
-}
-
-function keyPressed(){
-  if(keyCode === RIGHT_ARROW){
-    player.setDir(1);
-  } else if(keyCode === LEFT_ARROW){
-    player.setDir(-1);
-  } else if(key === ' '){
-    playerBullets.push(new PlayerBullet(player.x, height));
-  }
-}
-
-function keyReleased(){
-  if(keyCode !== ' '){
-    player.setDir(0);
-  }
-}
-
-class Player{
-  constructor(){
-    this.x = width/2;
-    this.y = height-20;
-    this.xdir = 0;
-  }
-  
-  show(){
+  fill(0);
+  textSize(16);
+  textAlign(LEFT, TOP);
+  text("Score: " + score, 10, 10 + sizeGrid * tileSize);
+  if (gameOver) {
+    fill(0, 150);
+    rect(0, 0, width, height);
     fill(255);
-    rectMode(CENTER);
-    rect(this.x, this.y, 20, 60);
-  }
-  
-  setDir(dir){
-    this.xdir = dir;
-  }
-  
-  move(){
-    this.x += this.xdir*5;
+    textSize(36);
+    textAlign(CENTER, CENTER);
+    text("Game Over", width / 2, height / 2 - 20);
+    textSize(18);
+    text("Press R to restart", width / 2, height / 2 + 20);
   }
 }
-
-class PlayerBullet{
-  constructor(x, y){
-    this.x = x;
-    this.y = y;
+function keyPressed() {
+  if (key === 'r' || key === 'R') {
+    initGame();
+    return;
   }
-  
-  show(){
-    fill(50, 0, 200);
-    ellipse(this.x, this.y, 16, 16);
+  if (gameOver) {
+    return;
   }
-  
-  move(){
-    this.y -= 5;
+  let moved = false;
+  if (keyCode === LEFT_ARROW || key === 'a' || key === 'A') {
+    moved = moveLeft();
+  } else if (keyCode === RIGHT_ARROW || key === 'd' || key === 'D') {
+    moved = moveRight();
+  } else if (keyCode === UP_ARROW || key === 'w' || key === 'W') {
+    moved = moveUp();
+  } else if (keyCode === DOWN_ARROW || key === 's' || key === 'S') {
+    moved = moveDown();
   }
-  
-  hits(invader){
-    let d = dist(this.x, this.y, invader.x, invader.y);
-    return (d < invader.r);
-  }
-}
-
-class Invader{
-  constructor(x, y){
-    this.x = x;
-    this.y = y;
-    this.r = 30;
-    this.xdir = 1;
-    this.ydir = 0;
-  }
-  
-  grow(){
-    this.r = this.r + 2;
-  }
-  
-  show(){
-    fill(255, 0, 200);
-    ellipse(this.x, this.y, this.r*2, this.r*2);
-  }
-  
-  move(){
-    this.x = this.x + this.xdir;
-    this.y = this.y + this.ydir;
-    
-    if(this.y > height-60 || this.y < 60){
-      this.ydir = -this.ydir;
+  if (moved) {
+    addRandomTile();
+    if (!canMove()) {
+      gameOver = true;
     }
-    
-    if(this.x > width-this.r || this.x < this.r){
-      this.xdir = -this.xdir;
-      this.y = this.y + this.r;
-    }
-  }
-}
-
-class InvaderBullet{
-  constructor(x, y){
-    this.x = x;
-    this.y = y;
-  }
-  
-  show(){
-    fill(255, 0, 0);
-    ellipse(this.x, this.y, 16, 16);
-  }
-  
-  move(){
-    this.y += 3;
-  }
-  
-  hits(player){
-    let d = dist(this.x, this.y, player.x, player.y);
-    return (d < player.r);
   }
 }
