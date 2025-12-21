@@ -2,142 +2,117 @@ let canvasW = 600;
 let canvasH = 400;
 let paddleW = 10;
 let paddleH = 80;
-let playerX = 20;
-let playerY = 200;
-let cpuX = 580;
-let cpuY = 200;
 let playerSpeed = 20;
-let cpuMaxSpeed = 5;
-let cpuMissFrames = 0;
-let cpuMissTargetY = 200;
-let ballX = 300;
-let ballY = 200;
+let cpuMaxSpeed = 15;
 let ballR = 8;
+let playerX = 10;
+let cpuX = canvasW - paddleW - 10;
+let playerY = (canvasH - paddleH) / 2;
+let cpuY = (canvasH - paddleH) / 2;
+let ballX = canvasW / 2;
+let ballY = canvasH / 2;
 let ballVX = 4;
 let ballVY = 3;
-let playerScore = 0;
-let cpuScore = 0;
-function setup(){
+let leftScore = 0;
+let rightScore = 0;
+let cpuMissFrames = 0;
+let cpuTargetY = canvasH / 2;
+function resetBall() {
+  ballX = canvasW / 2;
+  ballY = canvasH / 2;
+  ballVX = (random() < 0.5) ? 4 : -4;
+  ballVY = (random() < 0.5) ? 3 : -3;
+  cpuMissFrames = 0;
+  cpuTargetY = canvasH / 2;
+}
+function setup() {
   createCanvas(canvasW, canvasH);
-  playerY = canvasH/2;
-  cpuY = canvasH/2;
-  cpuMissTargetY = canvasH/2;
-  resetBall(1);
+  resetBall();
   textSize(32);
   textAlign(CENTER, TOP);
 }
-function draw(){
+function draw() {
   background(0);
-  updatePlayer();
-  updateCPU();
-  updateBall();
-  drawPaddles();
-  drawBall();
-  drawScore();
-}
-function updatePlayer(){
-  if (keyIsDown(UP_ARROW)){
-    playerY -= playerSpeed;
-  }
-  if (keyIsDown(DOWN_ARROW)){
-    playerY += playerSpeed;
-  }
-  let halfH = paddleH/2;
-  if (playerY < halfH){
-    playerY = halfH;
-  }
-  if (playerY > canvasH - halfH){
-    playerY = canvasH - halfH;
-  }
-}
-function updateCPU(){
-  if (cpuMissFrames > 0){
-    cpuMissFrames -= 1;
-    moveCpuToward(cpuMissTargetY);
-  } else {
-    if (ballVX > 0 && Math.random() < 0.01){
-      cpuMissFrames = 30;
-      cpuMissTargetY = Math.floor(Math.random()*(canvasH - paddleH)) + paddleH/2;
-      moveCpuToward(cpuMissTargetY);
-    } else {
-      moveCpuToward(ballY);
-    }
-  }
-  let halfH = paddleH/2;
-  if (cpuY < halfH){
-    cpuY = halfH;
-  }
-  if (cpuY > canvasH - halfH){
-    cpuY = canvasH - halfH;
-  }
-}
-function moveCpuToward(targetY){
-  let dy = targetY - cpuY;
-  if (Math.abs(dy) <= cpuMaxSpeed){
-    cpuY = targetY;
-  } else {
-    cpuY += cpuMaxSpeed * (dy > 0 ? 1 : -1);
-  }
-}
-function updateBall(){
-  ballX += ballVX;
-  ballY += ballVY;
-  if (ballY - ballR <= 0){
-    ballY = ballR;
-    ballVY = Math.abs(ballVY);
-  }
-  if (ballY + ballR >= canvasH){
-    ballY = canvasH - ballR;
-    ballVY = -Math.abs(ballVY);
-  }
-  handlePaddleCollision();
-  if (ballX - ballR <= 0){
-    cpuScore += 1;
-    resetBall(1);
-  }
-  if (ballX + ballR >= canvasW){
-    playerScore += 1;
-    resetBall(-1);
-  }
-}
-function handlePaddleCollision(){
-  let halfW = paddleW/2;
-  let halfH = paddleH/2;
-  if (Math.abs(ballX - playerX) <= halfW + ballR && Math.abs(ballY - playerY) <= halfH){
-    ballX = playerX + halfW + ballR;
-    ballVX = Math.abs(ballVX);
-    let relY = (ballY - playerY) / halfH;
-    ballVY = relY * 5;
-  }
-  if (Math.abs(ballX - cpuX) <= halfW + ballR && Math.abs(ballY - cpuY) <= halfH){
-    ballX = cpuX - halfW - ballR;
-    ballVX = -Math.abs(ballVX);
-    let relY2 = (ballY - cpuY) / halfH;
-    ballVY = relY2 * 5;
-  }
-}
-function resetBall(dir){
-  ballX = canvasW/2;
-  ballY = canvasH/2;
-  let sign = dir >= 0 ? 1 : -1;
-  ballVX = 4 * sign;
-  ballVY = (Math.random() * 6 - 3);
-  if (ballVY === 0){
-    ballVY = 1;
-  }
-}
-function drawPaddles(){
   fill(255);
-  rectMode(CENTER);
   rect(playerX, playerY, paddleW, paddleH);
   rect(cpuX, cpuY, paddleW, paddleH);
-}
-function drawBall(){
+  ellipse(ballX, ballY, ballR * 2, ballR * 2);
+  if (keyIsDown(UP_ARROW)) {
+    playerY -= playerSpeed;
+  }
+  if (keyIsDown(DOWN_ARROW)) {
+    playerY += playerSpeed;
+  }
+  playerY = constrain(playerY, 0, canvasH - paddleH);
+  if (cpuMissFrames > 0) {
+    cpuMissFrames -= 1;
+  }
+  if (cpuMissFrames > 0) {
+    let targetCenterY = cpuTargetY;
+    let cpuCenterY = cpuY + paddleH / 2;
+    let dy = targetCenterY - cpuCenterY;
+    if (abs(dy) <= cpuMaxSpeed) {
+      cpuY += dy;
+    } else {
+      cpuY += cpuMaxSpeed * (dy > 0 ? 1 : -1);
+    }
+  } else {
+    if (ballVX > 0 && ballX > canvasW / 2 && random() < 0.01) {
+      cpuMissFrames = 30;
+      cpuTargetY = random(paddleH / 2, canvasH - paddleH / 2);
+    } else {
+      let targetCenterY = ballY;
+      let cpuCenterY = cpuY + paddleH / 2;
+      let dy = targetCenterY - cpuCenterY;
+      if (abs(dy) <= cpuMaxSpeed) {
+        cpuY += dy;
+      } else {
+        cpuY += cpuMaxSpeed * (dy > 0 ? 1 : -1);
+      }
+    }
+  }
+  cpuY = constrain(cpuY, 0, canvasH - paddleH);
+  ballX += ballVX;
+  ballY += ballVY;
+  if (ballY - ballR <= 0) {
+    ballY = ballR;
+    ballVY = abs(ballVY);
+  }
+  if (ballY + ballR >= canvasH) {
+    ballY = canvasH - ballR;
+    ballVY = -abs(ballVY);
+  }
+  if (ballX - ballR <= playerX + paddleW && ballX - ballR >= playerX) {
+    if (ballY >= playerY && ballY <= playerY + paddleH) {
+      ballX = playerX + paddleW + ballR;
+      ballVX = abs(ballVX);
+      let relative = (ballY - (playerY + paddleH / 2)) / (paddleH / 2);
+      ballVY = relative * 6;
+      if (abs(ballVY) < 0.5) {
+        ballVY = ballVY >= 0 ? 0.5 : -0.5;
+      }
+    }
+  }
+  if (ballX + ballR >= cpuX && ballX + ballR <= cpuX + paddleW) {
+    if (ballY >= cpuY && ballY <= cpuY + paddleH) {
+      ballX = cpuX - ballR;
+      ballVX = -abs(ballVX);
+      let relative = (ballY - (cpuY + paddleH / 2)) / (paddleH / 2);
+      ballVY = relative * 6;
+      if (abs(ballVY) < 0.5) {
+        ballVY = ballVY >= 0 ? 0.5 : -0.5;
+      }
+    }
+  }
+  if (ballX + ballR < 0) {
+    rightScore += 1;
+    resetBall();
+  }
+  if (ballX - ballR > canvasW) {
+    leftScore += 1;
+    resetBall();
+  }
   fill(255);
-  ellipse(ballX, ballY, ballR*2, ballR*2);
-}
-function drawScore(){
-  fill(255);
-  text(playerScore, canvasW*0.25, 10);
-  text(cpuScore, canvasW*0.75, 10);
+  text(leftScore, canvasW / 4, 10);
+  text(rightScore, (canvasW * 3) / 4, 10);
 }
