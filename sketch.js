@@ -1,134 +1,256 @@
-const cols = 20;
-const rows = 20;
-const cellSize = 20;
-let snake = [];
-let dirX = 1;
-let dirY = 0;
-let food = { x: 0, y: 0 };
+let cols = 10;
+let rows = 20;
+let cellSize = 30;
+let board = [];
+let shapes = [];
+let colorsArr = [];
+let currentPiece = null;
 let score = 0;
-let moveInterval = 10;
-let frameCounter = 0;
+let dropCounter = 0;
+let baseDropInterval = 30;
 let gameOver = false;
 function setup() {
-  createCanvas(400, 400);
-  frameRate(60);
-  const centerX = Math.floor(cols / 2);
-  const centerY = Math.floor(rows / 2);
-  snake = [
-    { x: centerX, y: centerY },
-    { x: centerX - 1, y: centerY },
-    { x: centerX - 2, y: centerY }
+  createCanvas(300, 600);
+  for (let r = 0; r < rows; r++) {
+    let rowArr = [];
+    for (let c = 0; c < cols; c++) {
+      rowArr.push(0);
+    }
+    board.push(rowArr);
+  }
+  shapes = [
+    [
+      [0,0,0,0],
+      [1,1,1,1],
+      [0,0,0,0],
+      [0,0,0,0]
+    ],
+    [
+      [0,1,1,0],
+      [0,1,1,0],
+      [0,0,0,0],
+      [0,0,0,0]
+    ],
+    [
+      [0,1,0,0],
+      [1,1,1,0],
+      [0,0,0,0],
+      [0,0,0,0]
+    ],
+    [
+      [0,0,1,0],
+      [1,1,1,0],
+      [0,0,0,0],
+      [0,0,0,0]
+    ],
+    [
+      [1,0,0,0],
+      [1,1,1,0],
+      [0,0,0,0],
+      [0,0,0,0]
+    ],
+    [
+      [0,1,1,0],
+      [1,1,0,0],
+      [0,0,0,0],
+      [0,0,0,0]
+    ],
+    [
+      [1,1,0,0],
+      [0,1,1,0],
+      [0,0,0,0],
+      [0,0,0,0]
+    ]
   ];
-  placeFood();
-  textAlign(LEFT, TOP);
+  colorsArr = [
+    color(0,0,0),
+    color(0,255,255),
+    color(255,255,0),
+    color(128,0,128),
+    color(255,165,0),
+    color(0,0,255),
+    color(0,255,0),
+    color(255,0,0)
+  ];
+  spawnPiece();
   textSize(16);
   noStroke();
 }
 function draw() {
-  background(220);
-  fill(0);
-  text("Score: " + score, 6, 6);
-  for (let i = 0; i < snake.length; i++) {
-    if (i === 0) {
-      fill(0, 120, 0);
-    } else {
-      fill(0, 180, 0);
-    }
-    rect(snake[i].x * cellSize, snake[i].y * cellSize + 20, cellSize, cellSize);
-  }
-  fill(200, 0, 0);
-  rect(food.x * cellSize, food.y * cellSize + 20, cellSize, cellSize);
-  if (!gameOver) {
-    frameCounter++;
-    if (frameCounter >= moveInterval) {
-      moveSnake();
-      frameCounter = 0;
-    }
-  } else {
-    fill(0);
-    textAlign(CENTER, CENTER);
-    textSize(32);
-    text("Game Over", width / 2, height / 2);
-    textSize(16);
-    textAlign(LEFT, TOP);
-  }
-}
-function moveSnake() {
-  if (snake.length === 0) {
-    gameOver = true;
-    return;
-  }
-  const head = snake[0];
-  const newX = head.x + dirX;
-  const newY = head.y + dirY;
-  if (newX < 0 || newX >= cols || newY < 0 || newY >= rows) {
-    gameOver = true;
-    return;
-  }
-  const willGrow = (food.x === newX && food.y === newY);
-  for (let i = 0; i < snake.length; i++) {
-    if (snake[i].x === newX && snake[i].y === newY) {
-      if (!(i === snake.length - 1 && !willGrow)) {
-        gameOver = true;
-        return;
+  background(20);
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      let val = board[r][c];
+      if (val !== 0) {
+        fill(colorsArr[val]);
+        rect(c * cellSize, r * cellSize, cellSize, cellSize);
+      } else {
+        fill(30);
+        rect(c * cellSize, r * cellSize, cellSize, cellSize);
       }
     }
   }
-  snake.unshift({ x: newX, y: newY });
-  if (willGrow) {
-    score++;
-    placeFood();
-  } else {
-    snake.pop();
+  if (currentPiece !== null) {
+    for (let i = 0; i < 4; i++) {
+      for (let j = 0; j < 4; j++) {
+        if (currentPiece.shape[i][j] === 1) {
+          let r = currentPiece.y + i;
+          let c = currentPiece.x + j;
+          if (r >= 0 && r < rows && c >= 0 && c < cols) {
+            fill(colorsArr[currentPiece.color]);
+            rect(c * cellSize, r * cellSize, cellSize, cellSize);
+          }
+        }
+      }
+    }
+  }
+  fill(255);
+  text('Score: ' + score, 5, 18);
+  if (gameOver) {
+    fill(0,0,0,150);
+    rect(0, height/2 - 40, width, 80);
+    fill(255);
+    textSize(32);
+    textAlign(CENTER, CENTER);
+    text('Game Over', width/2, height/2);
+    textSize(16);
+    textAlign(LEFT, BASELINE);
+    return;
+  }
+  let dropInterval = baseDropInterval;
+  if (keyIsDown(DOWN_ARROW)) {
+    dropInterval = 1;
+  }
+  dropCounter++;
+  if (dropCounter >= dropInterval) {
+    dropCounter = 0;
+    stepDown();
   }
 }
-function placeFood() {
-  let attempts = 0;
-  while (true) {
-    const fx = Math.floor(Math.random() * cols);
-    const fy = Math.floor(Math.random() * rows);
-    let collision = false;
-    for (let i = 0; i < snake.length; i++) {
-      if (snake[i].x === fx && snake[i].y === fy) {
-        collision = true;
+function spawnPiece() {
+  let idx = floor(random(0, shapes.length));
+  let shp = deepCopyShape(shapes[idx]);
+  currentPiece = {
+    shape: shp,
+    x: 3,
+    y: -1,
+    color: idx + 1
+  };
+  if (collides(currentPiece.shape, currentPiece.x, currentPiece.y)) {
+    gameOver = true;
+  }
+}
+function deepCopyShape(s) {
+  let out = [];
+  for (let i = 0; i < 4; i++) {
+    let row = [];
+    for (let j = 0; j < 4; j++) {
+      row.push(s[i][j]);
+    }
+    out.push(row);
+  }
+  return out;
+}
+function collides(mat, px, py) {
+  for (let i = 0; i < 4; i++) {
+    for (let j = 0; j < 4; j++) {
+      if (mat[i][j] === 0) continue;
+      let r = py + i;
+      let c = px + j;
+      if (c < 0 || c >= cols) return true;
+      if (r >= rows) return true;
+      if (r >= 0) {
+        if (board[r][c] !== 0) return true;
+      }
+    }
+  }
+  return false;
+}
+function stepDown() {
+  if (currentPiece === null) return;
+  if (!collides(currentPiece.shape, currentPiece.x, currentPiece.y + 1)) {
+    currentPiece.y += 1;
+  } else {
+    lockPiece();
+    clearLines();
+    spawnPiece();
+  }
+}
+function lockPiece() {
+  for (let i = 0; i < 4; i++) {
+    for (let j = 0; j < 4; j++) {
+      if (currentPiece.shape[i][j] === 1) {
+        let r = currentPiece.y + i;
+        let c = currentPiece.x + j;
+        if (r >= 0 && r < rows && c >= 0 && c < cols) {
+          board[r][c] = currentPiece.color;
+        }
+      }
+    }
+  }
+  currentPiece = null;
+}
+function clearLines() {
+  let newBoard = [];
+  for (let r = 0; r < rows; r++) {
+    let full = true;
+    for (let c = 0; c < cols; c++) {
+      if (board[r][c] === 0) {
+        full = false;
         break;
       }
     }
-    if (!collision) {
-      food.x = fx;
-      food.y = fy;
-      return;
+    if (!full) {
+      newBoard.push(board[r].slice());
     }
-    attempts++;
-    if (attempts > 1000) {
-      return;
+  }
+  let removed = rows - newBoard.length;
+  for (let i = 0; i < removed; i++) {
+    let emptyRow = [];
+    for (let c = 0; c < cols; c++) {
+      emptyRow.push(0);
     }
+    newBoard.unshift(emptyRow);
+  }
+  board = newBoard;
+  if (removed > 0) {
+    score += removed * 100;
   }
 }
+function rotateMatrix(mat) {
+  let nm = [];
+  for (let i = 0; i < 4; i++) {
+    let row = [];
+    for (let j = 0; j < 4; j++) {
+      row.push(0);
+    }
+    nm.push(row);
+  }
+  for (let i = 0; i < 4; i++) {
+    for (let j = 0; j < 4; j++) {
+      nm[j][3 - i] = mat[i][j];
+    }
+  }
+  return nm;
+}
 function keyPressed() {
-  if (gameOver) {
-    return;
-  }
-  let newX = dirX;
-  let newY = dirY;
-  if (keyCode === UP_ARROW) {
-    newX = 0;
-    newY = -1;
-  } else if (keyCode === DOWN_ARROW) {
-    newX = 0;
-    newY = 1;
-  } else if (keyCode === LEFT_ARROW) {
-    newX = -1;
-    newY = 0;
+  if (gameOver) return;
+  if (currentPiece === null) return;
+  if (keyCode === LEFT_ARROW) {
+    if (!collides(currentPiece.shape, currentPiece.x - 1, currentPiece.y)) {
+      currentPiece.x -= 1;
+    }
   } else if (keyCode === RIGHT_ARROW) {
-    newX = 1;
-    newY = 0;
-  } else {
-    return;
+    if (!collides(currentPiece.shape, currentPiece.x + 1, currentPiece.y)) {
+      currentPiece.x += 1;
+    }
+  } else if (keyCode === UP_ARROW) {
+    let rotated = rotateMatrix(currentPiece.shape);
+    if (!collides(rotated, currentPiece.x, currentPiece.y)) {
+      currentPiece.shape = rotated;
+    }
+  } else if (keyCode === DOWN_ARROW) {
+    stepDown();
+    dropCounter = 0;
   }
-  if (newX === -dirX && newY === -dirY) {
-    return;
-  }
-  dirX = newX;
-  dirY = newY;
 }
