@@ -1,176 +1,69 @@
-let cols = 10;
-let rows = 20;
-let cellSize = 30;
-let grid = [];
-let pieces = [];
-let pieceColors = [];
-let currentPiece = null;
+const COLS = 10;
+const ROWS = 20;
+const CELL = 30;
+const WIDTH = COLS * CELL;
+const HEIGHT = ROWS * CELL;
+let board = [];
+let shapes = [];
+let current = null;
+let px = 0;
+let py = 0;
 let dropCounter = 0;
 let dropInterval = 60;
 let score = 0;
 let gameOver = false;
-function setup() {
-  createCanvas(300, 600);
-  for (let r = 0; r < rows; r++) {
+function createEmptyRow() {
+  let row = [];
+  for (let i = 0; i < COLS; i++) {
+    row.push(0);
+  }
+  return row;
+}
+function initBoard() {
+  board = [];
+  for (let r = 0; r < ROWS; r++) {
+    board.push(createEmptyRow());
+  }
+}
+function copyMatrix(m) {
+  let out = [];
+  for (let r = 0; r < m.length; r++) {
     let row = [];
-    for (let c = 0; c < cols; c++) {
+    for (let c = 0; c < m[r].length; c++) {
+      row.push(m[r][c]);
+    }
+    out.push(row);
+  }
+  return out;
+}
+function rotateMatrix(m) {
+  let N = m.length;
+  let res = [];
+  for (let r = 0; r < N; r++) {
+    let row = [];
+    for (let c = 0; c < N; c++) {
       row.push(0);
     }
-    grid.push(row);
+    res.push(row);
   }
-  pieceColors = [
-    color(0, 255, 255),
-    color(255, 255, 0),
-    color(128, 0, 128),
-    color(255, 165, 0),
-    color(0, 0, 255),
-    color(0, 255, 0),
-    color(255, 0, 0),
-    color(200, 200, 200)
-  ];
-  pieces = [
-    [
-      [0,0,0,0],
-      [1,1,1,1],
-      [0,0,0,0],
-      [0,0,0,0]
-    ],
-    [
-      [0,0,0,0],
-      [0,1,1,0],
-      [0,1,1,0],
-      [0,0,0,0]
-    ],
-    [
-      [0,0,0,0],
-      [0,1,0,0],
-      [1,1,1,0],
-      [0,0,0,0]
-    ],
-    [
-      [0,0,0,0],
-      [0,0,1,0],
-      [1,1,1,0],
-      [0,0,0,0]
-    ],
-    [
-      [0,0,0,0],
-      [1,0,0,0],
-      [1,1,1,0],
-      [0,0,0,0]
-    ],
-    [
-      [0,0,0,0],
-      [0,1,1,0],
-      [1,1,0,0],
-      [0,0,0,0]
-    ],
-    [
-      [0,0,0,0],
-      [1,1,0,0],
-      [0,1,1,0],
-      [0,0,0,0]
-    ],
-    [
-      [0,1,0,0],
-      [0,1,0,0],
-      [0,1,0,0],
-      [0,1,0,0]
-    ]
-  ];
-  spawnPiece();
-  textSize(16);
-  textAlign(LEFT, TOP);
+  for (let r = 0; r < N; r++) {
+    for (let c = 0; c < N; c++) {
+      res[c][N - 1 - r] = m[r][c];
+    }
+  }
+  return res;
 }
-function draw() {
-  background(30);
-  noStroke();
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols; c++) {
-      let val = grid[r][c];
-      if (val !== 0) {
-        fill(pieceColors[val - 1]);
-      } else {
-        fill(50);
-      }
-      rect(c * cellSize, r * cellSize, cellSize, cellSize);
-      fill(40);
-      stroke(20);
-      line(c * cellSize, r * cellSize + cellSize, c * cellSize + cellSize, r * cellSize + cellSize);
-      line(c * cellSize + cellSize, r * cellSize, c * cellSize + cellSize, r * cellSize + cellSize);
-      noStroke();
-    }
-  }
-  if (currentPiece !== null) {
-    for (let r = 0; r < 4; r++) {
-      for (let c = 0; c < 4; c++) {
-        if (currentPiece.matrix[r][c] === 1) {
-          let gx = currentPiece.x + c;
-          let gy = currentPiece.y + r;
-          if (gy >= 0 && gy < rows && gx >= 0 && gx < cols) {
-            fill(pieceColors[currentPiece.type]);
-            rect(gx * cellSize, gy * cellSize, cellSize, cellSize);
-          }
-        }
-      }
-    }
-  }
-  if (!gameOver) {
-    dropInterval = keyIsDown(DOWN_ARROW) ? 1 : 60;
-    dropCounter++;
-    if (dropCounter >= dropInterval) {
-      dropCounter = 0;
-      if (currentPiece !== null) {
-        let moved = tryMove(0, 1);
-        if (!moved) {
-          lockPiece();
-          clearLines();
-          spawnPiece();
-        }
-      }
-    }
-  }
-  fill(255);
-  text("Score: " + score, 5, 5);
-  if (gameOver) {
-    fill(0, 0, 0, 180);
-    rect(0, height / 2 - 40, width, 80);
-    fill(255);
-    textSize(24);
-    textAlign(CENTER, CENTER);
-    text("GAME OVER", width / 2, height / 2);
-    textSize(16);
-    textAlign(LEFT, TOP);
-  }
-}
-function spawnPiece() {
-  let idx = floor(random(pieces.length));
-  let matrix = [];
-  for (let r = 0; r < 4; r++) {
-    let row = [];
-    for (let c = 0; c < 4; c++) {
-      row.push(pieces[idx][r][c]);
-    }
-    matrix.push(row);
-  }
-  let startX = floor((cols - 4) / 2);
-  let startY = -1;
-  currentPiece = {matrix: matrix, x: startX, y: startY, type: idx};
-  if (collides(currentPiece.matrix, currentPiece.x, currentPiece.y)) {
-    gameOver = true;
-  }
-}
-function collides(mat, px, py) {
-  for (let r = 0; r < 4; r++) {
-    for (let c = 0; c < 4; c++) {
-      if (mat[r][c] === 1) {
-        let gx = px + c;
-        let gy = py + r;
-        if (gx < 0 || gx >= cols || gy >= rows) {
+function collide(mat, x, y) {
+  for (let r = 0; r < mat.length; r++) {
+    for (let c = 0; c < mat[r].length; c++) {
+      if (mat[r][c]) {
+        let bx = x + c;
+        let by = y + r;
+        if (bx < 0 || bx >= COLS || by >= ROWS) {
           return true;
         }
-        if (gy >= 0) {
-          if (grid[gy][gx] !== 0) {
+        if (by >= 0) {
+          if (board[by][bx]) {
             return true;
           }
         }
@@ -179,99 +72,145 @@ function collides(mat, px, py) {
   }
   return false;
 }
-function tryMove(dx, dy) {
-  if (currentPiece === null) {
-    return false;
-  }
-  let nx = currentPiece.x + dx;
-  let ny = currentPiece.y + dy;
-  if (!collides(currentPiece.matrix, nx, ny)) {
-    currentPiece.x = nx;
-    currentPiece.y = ny;
-    return true;
-  }
-  return false;
-}
 function lockPiece() {
-  if (currentPiece === null) {
-    return;
-  }
-  for (let r = 0; r < 4; r++) {
-    for (let c = 0; c < 4; c++) {
-      if (currentPiece.matrix[r][c] === 1) {
-        let gx = currentPiece.x + c;
-        let gy = currentPiece.y + r;
-        if (gy >= 0 && gy < rows && gx >= 0 && gx < cols) {
-          grid[gy][gx] = currentPiece.type + 1;
+  for (let r = 0; r < current.length; r++) {
+    for (let c = 0; c < current[r].length; c++) {
+      if (current[r][c]) {
+        let bx = px + c;
+        let by = py + r;
+        if (by >= 0 && by < ROWS && bx >= 0 && bx < COLS) {
+          board[by][bx] = 1;
         }
       }
     }
   }
-  currentPiece = null;
+  clearLines();
+  spawnPiece();
 }
 function clearLines() {
-  let linesCleared = 0;
-  for (let r = rows - 1; r >= 0; r--) {
+  let lines = 0;
+  for (let y = ROWS - 1; y >= 0; y--) {
     let full = true;
-    for (let c = 0; c < cols; c++) {
-      if (grid[r][c] === 0) {
+    for (let x = 0; x < COLS; x++) {
+      if (!board[y][x]) {
         full = false;
         break;
       }
     }
     if (full) {
-      grid.splice(r, 1);
-      let newRow = [];
-      for (let c = 0; c < cols; c++) {
-        newRow.push(0);
-      }
-      grid.unshift(newRow);
-      linesCleared++;
-      r++;
+      board.splice(y, 1);
+      board.unshift(createEmptyRow());
+      lines++;
+      y++;
     }
   }
-  if (linesCleared > 0) {
-    score += linesCleared * 100;
+  if (lines > 0) {
+    score += lines * 100;
   }
 }
-function rotateMatrix(mat) {
-  let res = [];
-  for (let r = 0; r < 4; r++) {
-    let row = [];
-    for (let c = 0; c < 4; c++) {
-      row.push(0);
-    }
-    res.push(row);
+function spawnPiece() {
+  let idx = Math.floor(Math.random() * shapes.length);
+  current = copyMatrix(shapes[idx]);
+  px = Math.floor(COLS / 2) - 2;
+  py = 0;
+  if (collide(current, px, py)) {
+    gameOver = true;
   }
-  for (let r = 0; r < 4; r++) {
-    for (let c = 0; c < 4; c++) {
-      res[c][3 - r] = mat[r][c];
+}
+function setup() {
+  createCanvas(WIDTH, HEIGHT);
+  initBoard();
+  shapes = [
+    [
+      [0,0,0,0],
+      [0,1,1,0],
+      [0,1,1,0],
+      [0,0,0,0]
+    ]
+  ];
+  spawnPiece();
+  textSize(16);
+  noStroke();
+}
+function drawGrid() {
+  stroke(50);
+  for (let x = 0; x <= WIDTH; x += CELL) {
+    line(x, 0, x, HEIGHT);
+  }
+  for (let y = 0; y <= HEIGHT; y += CELL) {
+    line(0, y, WIDTH, y);
+  }
+  noStroke();
+}
+function draw() {
+  background(20);
+  fill(30);
+  rect(0, 0, WIDTH, HEIGHT);
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      if (board[r][c]) {
+        fill(200, 160, 0);
+        rect(c * CELL, r * CELL, CELL, CELL);
+      }
     }
   }
-  return res;
+  if (current) {
+    for (let r = 0; r < current.length; r++) {
+      for (let c = 0; c < current[r].length; c++) {
+        if (current[r][c]) {
+          let bx = px + c;
+          let by = py + r;
+          if (by >= 0) {
+            fill(0, 200, 200);
+            rect(bx * CELL, by * CELL, CELL, CELL);
+          }
+        }
+      }
+    }
+  }
+  fill(255);
+  text("Score: " + score, 5, 18);
+  if (gameOver) {
+    fill(255, 0, 0);
+    textSize(32);
+    text("Game Over", 50, HEIGHT / 2);
+    return;
+  }
+  dropInterval = keyIsDown(DOWN_ARROW) ? 2 : 60;
+  dropCounter++;
+  if (dropCounter >= dropInterval) {
+    py++;
+    if (collide(current, px, py)) {
+      py--;
+      lockPiece();
+    }
+    dropCounter = 0;
+  }
+  drawGrid();
 }
 function keyPressed() {
   if (gameOver) {
     return;
   }
   if (keyCode === LEFT_ARROW) {
-    tryMove(-1, 0);
+    if (!collide(current, px - 1, py)) {
+      px--;
+    }
   } else if (keyCode === RIGHT_ARROW) {
-    tryMove(1, 0);
+    if (!collide(current, px + 1, py)) {
+      px++;
+    }
   } else if (keyCode === UP_ARROW) {
-    if (currentPiece !== null) {
-      let rotated = rotateMatrix(currentPiece.matrix);
-      if (!collides(rotated, currentPiece.x, currentPiece.y)) {
-        currentPiece.matrix = rotated;
-      }
+    let rotated = rotateMatrix(current);
+    if (!collide(rotated, px, py)) {
+      current = rotated;
     }
   } else if (keyCode === DOWN_ARROW) {
-    if (currentPiece !== null) {
-      if (!tryMove(0, 1)) {
-        lockPiece();
-        clearLines();
-        spawnPiece();
-      }
+    py++;
+    if (collide(current, px, py)) {
+      py--;
+      lockPiece();
     }
+    dropCounter = 0;
   }
 }
