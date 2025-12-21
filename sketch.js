@@ -1,73 +1,176 @@
 let cols = 10;
 let rows = 20;
 let cellSize = 30;
-let board = [];
-let shapes = [];
-let colors = [];
-let current = null;
-let frameCounter = 0;
-let dropInterval = 30;
+let grid = [];
+let pieces = [];
+let pieceColors = [];
+let currentPiece = null;
+let dropCounter = 0;
+let dropInterval = 60;
 let score = 0;
 let gameOver = false;
-function createEmptyBoard() {
-  let b = [];
+function setup() {
+  createCanvas(300, 600);
   for (let r = 0; r < rows; r++) {
     let row = [];
     for (let c = 0; c < cols; c++) {
       row.push(0);
     }
-    b.push(row);
+    grid.push(row);
   }
-  return b;
+  pieceColors = [
+    color(0, 255, 255),
+    color(255, 255, 0),
+    color(128, 0, 128),
+    color(255, 165, 0),
+    color(0, 0, 255),
+    color(0, 255, 0),
+    color(255, 0, 0),
+    color(200, 200, 200)
+  ];
+  pieces = [
+    [
+      [0,0,0,0],
+      [1,1,1,1],
+      [0,0,0,0],
+      [0,0,0,0]
+    ],
+    [
+      [0,0,0,0],
+      [0,1,1,0],
+      [0,1,1,0],
+      [0,0,0,0]
+    ],
+    [
+      [0,0,0,0],
+      [0,1,0,0],
+      [1,1,1,0],
+      [0,0,0,0]
+    ],
+    [
+      [0,0,0,0],
+      [0,0,1,0],
+      [1,1,1,0],
+      [0,0,0,0]
+    ],
+    [
+      [0,0,0,0],
+      [1,0,0,0],
+      [1,1,1,0],
+      [0,0,0,0]
+    ],
+    [
+      [0,0,0,0],
+      [0,1,1,0],
+      [1,1,0,0],
+      [0,0,0,0]
+    ],
+    [
+      [0,0,0,0],
+      [1,1,0,0],
+      [0,1,1,0],
+      [0,0,0,0]
+    ],
+    [
+      [0,1,0,0],
+      [0,1,0,0],
+      [0,1,0,0],
+      [0,1,0,0]
+    ]
+  ];
+  spawnPiece();
+  textSize(16);
+  textAlign(LEFT, TOP);
 }
-function cloneMatrix(mat) {
-  let out = [];
+function draw() {
+  background(30);
+  noStroke();
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      let val = grid[r][c];
+      if (val !== 0) {
+        fill(pieceColors[val - 1]);
+      } else {
+        fill(50);
+      }
+      rect(c * cellSize, r * cellSize, cellSize, cellSize);
+      fill(40);
+      stroke(20);
+      line(c * cellSize, r * cellSize + cellSize, c * cellSize + cellSize, r * cellSize + cellSize);
+      line(c * cellSize + cellSize, r * cellSize, c * cellSize + cellSize, r * cellSize + cellSize);
+      noStroke();
+    }
+  }
+  if (currentPiece !== null) {
+    for (let r = 0; r < 4; r++) {
+      for (let c = 0; c < 4; c++) {
+        if (currentPiece.matrix[r][c] === 1) {
+          let gx = currentPiece.x + c;
+          let gy = currentPiece.y + r;
+          if (gy >= 0 && gy < rows && gx >= 0 && gx < cols) {
+            fill(pieceColors[currentPiece.type]);
+            rect(gx * cellSize, gy * cellSize, cellSize, cellSize);
+          }
+        }
+      }
+    }
+  }
+  if (!gameOver) {
+    dropInterval = keyIsDown(DOWN_ARROW) ? 1 : 60;
+    dropCounter++;
+    if (dropCounter >= dropInterval) {
+      dropCounter = 0;
+      if (currentPiece !== null) {
+        let moved = tryMove(0, 1);
+        if (!moved) {
+          lockPiece();
+          clearLines();
+          spawnPiece();
+        }
+      }
+    }
+  }
+  fill(255);
+  text("Score: " + score, 5, 5);
+  if (gameOver) {
+    fill(0, 0, 0, 180);
+    rect(0, height / 2 - 40, width, 80);
+    fill(255);
+    textSize(24);
+    textAlign(CENTER, CENTER);
+    text("GAME OVER", width / 2, height / 2);
+    textSize(16);
+    textAlign(LEFT, TOP);
+  }
+}
+function spawnPiece() {
+  let idx = floor(random(pieces.length));
+  let matrix = [];
   for (let r = 0; r < 4; r++) {
     let row = [];
     for (let c = 0; c < 4; c++) {
-      row.push(mat[r][c]);
+      row.push(pieces[idx][r][c]);
     }
-    out.push(row);
+    matrix.push(row);
   }
-  return out;
+  let startX = floor((cols - 4) / 2);
+  let startY = -1;
+  currentPiece = {matrix: matrix, x: startX, y: startY, type: idx};
+  if (collides(currentPiece.matrix, currentPiece.x, currentPiece.y)) {
+    gameOver = true;
+  }
 }
-function rotateMatrix(mat) {
-  let out = [];
-  for (let r = 0; r < 4; r++) {
-    let row = [];
-    for (let c = 0; c < 4; c++) {
-      row.push(0);
-    }
-    out.push(row);
-  }
-  for (let r = 0; r < 4; r++) {
-    for (let c = 0; c < 4; c++) {
-      out[c][3 - r] = mat[r][c];
-    }
-  }
-  return out;
-}
-function getMatrix(type, rot) {
-  let m = cloneMatrix(shapes[type]);
-  for (let i = 0; i < (rot % 4 + 4) % 4; i++) {
-    m = rotateMatrix(m);
-  }
-  return m;
-}
-function collides(mat, x, y) {
+function collides(mat, px, py) {
   for (let r = 0; r < 4; r++) {
     for (let c = 0; c < 4; c++) {
       if (mat[r][c] === 1) {
-        let tx = x + c;
-        let ty = y + r;
-        if (tx < 0 || tx >= cols) {
+        let gx = px + c;
+        let gy = py + r;
+        if (gx < 0 || gx >= cols || gy >= rows) {
           return true;
         }
-        if (ty >= rows) {
-          return true;
-        }
-        if (ty >= 0) {
-          if (board[ty][tx] !== 0) {
+        if (gy >= 0) {
+          if (grid[gy][gx] !== 0) {
             return true;
           }
         }
@@ -76,45 +179,53 @@ function collides(mat, x, y) {
   }
   return false;
 }
-function spawnNew() {
-  let type = Math.floor(Math.random() * shapes.length);
-  let rot = 0;
-  let x = 3;
-  let y = 0;
-  let mat = getMatrix(type, rot);
-  current = { type: type, rot: rot, x: x, y: y, mat: mat };
-  if (collides(current.mat, current.x, current.y)) {
-    gameOver = true;
+function tryMove(dx, dy) {
+  if (currentPiece === null) {
+    return false;
   }
+  let nx = currentPiece.x + dx;
+  let ny = currentPiece.y + dy;
+  if (!collides(currentPiece.matrix, nx, ny)) {
+    currentPiece.x = nx;
+    currentPiece.y = ny;
+    return true;
+  }
+  return false;
 }
 function lockPiece() {
+  if (currentPiece === null) {
+    return;
+  }
   for (let r = 0; r < 4; r++) {
     for (let c = 0; c < 4; c++) {
-      if (current.mat[r][c] === 1) {
-        let tx = current.x + c;
-        let ty = current.y + r;
-        if (ty >= 0 && ty < rows && tx >= 0 && tx < cols) {
-          board[ty][tx] = current.type + 1;
+      if (currentPiece.matrix[r][c] === 1) {
+        let gx = currentPiece.x + c;
+        let gy = currentPiece.y + r;
+        if (gy >= 0 && gy < rows && gx >= 0 && gx < cols) {
+          grid[gy][gx] = currentPiece.type + 1;
         }
       }
     }
   }
+  currentPiece = null;
+}
+function clearLines() {
   let linesCleared = 0;
   for (let r = rows - 1; r >= 0; r--) {
     let full = true;
     for (let c = 0; c < cols; c++) {
-      if (board[r][c] === 0) {
+      if (grid[r][c] === 0) {
         full = false;
         break;
       }
     }
     if (full) {
-      board.splice(r, 1);
+      grid.splice(r, 1);
       let newRow = [];
       for (let c = 0; c < cols; c++) {
         newRow.push(0);
       }
-      board.unshift(newRow);
+      grid.unshift(newRow);
       linesCleared++;
       r++;
     }
@@ -122,172 +233,45 @@ function lockPiece() {
   if (linesCleared > 0) {
     score += linesCleared * 100;
   }
-  spawnNew();
 }
-function dropPiece() {
-  if (!collides(current.mat, current.x, current.y + 1)) {
-    current.y += 1;
-  } else {
-    lockPiece();
+function rotateMatrix(mat) {
+  let res = [];
+  for (let r = 0; r < 4; r++) {
+    let row = [];
+    for (let c = 0; c < 4; c++) {
+      row.push(0);
+    }
+    res.push(row);
   }
-}
-function movePiece(dx) {
-  if (!collides(current.mat, current.x + dx, current.y)) {
-    current.x += dx;
-  }
-}
-function rotatePiece() {
-  let newRot = (current.rot + 1) % 4;
-  let newMat = getMatrix(current.type, newRot);
-  if (!collides(newMat, current.x, current.y)) {
-    current.rot = newRot;
-    current.mat = newMat;
-    return;
-  }
-  let kicks = [-1, 1, -2, 2];
-  for (let i = 0; i < kicks.length; i++) {
-    let k = kicks[i];
-    if (!collides(newMat, current.x + k, current.y)) {
-      current.x += k;
-      current.rot = newRot;
-      current.mat = newMat;
-      return;
+  for (let r = 0; r < 4; r++) {
+    for (let c = 0; c < 4; c++) {
+      res[c][3 - r] = mat[r][c];
     }
   }
-}
-function setupShapes() {
-  shapes = [];
-  shapes.push([
-    [0,0,0,0],
-    [1,1,1,1],
-    [0,0,0,0],
-    [0,0,0,0]
-  ]);
-  shapes.push([
-    [0,1,1,0],
-    [0,1,1,0],
-    [0,0,0,0],
-    [0,0,0,0]
-  ]);
-  shapes.push([
-    [0,1,0,0],
-    [1,1,1,0],
-    [0,0,0,0],
-    [0,0,0,0]
-  ]);
-  shapes.push([
-    [0,0,1,0],
-    [1,1,1,0],
-    [0,0,0,0],
-    [0,0,0,0]
-  ]);
-  shapes.push([
-    [1,0,0,0],
-    [1,1,1,0],
-    [0,0,0,0],
-    [0,0,0,0]
-  ]);
-  shapes.push([
-    [0,1,1,0],
-    [1,1,0,0],
-    [0,0,0,0],
-    [0,0,0,0]
-  ]);
-  shapes.push([
-    [1,1,0,0],
-    [0,1,1,0],
-    [0,0,0,0],
-    [0,0,0,0]
-  ]);
-}
-function setupColors() {
-  colors = [
-    '#00f0f0',
-    '#f0f000',
-    '#a000f0',
-    '#f0a000',
-    '#0000f0',
-    '#00f000',
-    '#f00000'
-  ];
+  return res;
 }
 function keyPressed() {
   if (gameOver) {
     return;
   }
   if (keyCode === LEFT_ARROW) {
-    movePiece(-1);
+    tryMove(-1, 0);
   } else if (keyCode === RIGHT_ARROW) {
-    movePiece(1);
+    tryMove(1, 0);
   } else if (keyCode === UP_ARROW) {
-    rotatePiece();
+    if (currentPiece !== null) {
+      let rotated = rotateMatrix(currentPiece.matrix);
+      if (!collides(rotated, currentPiece.x, currentPiece.y)) {
+        currentPiece.matrix = rotated;
+      }
+    }
   } else if (keyCode === DOWN_ARROW) {
-    dropPiece();
-  }
-}
-function setup() {
-  createCanvas(cols * cellSize, rows * cellSize);
-  board = createEmptyBoard();
-  setupShapes();
-  setupColors();
-  frameCounter = 0;
-  score = 0;
-  gameOver = false;
-  spawnNew();
-  noStroke();
-  textAlign(LEFT, TOP);
-  textSize(16);
-  fill(255);
-}
-function draw() {
-  background(30);
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols; c++) {
-      let v = board[r][c];
-      if (v === 0) {
-        fill(40);
-      } else {
-        fill(colors[v - 1]);
+    if (currentPiece !== null) {
+      if (!tryMove(0, 1)) {
+        lockPiece();
+        clearLines();
+        spawnPiece();
       }
-      rect(c * cellSize, r * cellSize, cellSize - 1, cellSize - 1);
-    }
-  }
-  if (!gameOver && current !== null) {
-    for (let r = 0; r < 4; r++) {
-      for (let c = 0; c < 4; c++) {
-        if (current.mat[r][c] === 1) {
-          let tx = current.x + c;
-          let ty = current.y + r;
-          if (ty >= 0) {
-            fill(colors[current.type]);
-            rect(tx * cellSize, ty * cellSize, cellSize - 1, cellSize - 1);
-          } else {
-            fill(colors[current.type]);
-            rect(tx * cellSize, 0, cellSize - 1, cellSize - 1);
-          }
-        }
-      }
-    }
-  }
-  fill(255);
-  text('Score: ' + score, 5, 5);
-  if (gameOver) {
-    fill(200, 50, 50);
-    textSize(32);
-    textAlign(CENTER, CENTER);
-    text('GAME OVER', width / 2, height / 2);
-    textSize(16);
-    textAlign(LEFT, TOP);
-    return;
-  }
-  frameCounter++;
-  if (keyIsDown(DOWN_ARROW)) {
-    dropPiece();
-    frameCounter = 0;
-  } else {
-    if (frameCounter >= dropInterval) {
-      dropPiece();
-      frameCounter = 0;
     }
   }
 }
