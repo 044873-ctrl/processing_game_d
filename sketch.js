@@ -1,138 +1,284 @@
-let player;
-let playerR = 14;
-let playerSpeed = 8;
-let bullets = [];
-let enemies = [];
-let particles = [];
-let stars = [];
+let COLS = 10;
+let ROWS = 20;
+let SIZE = 30;
+let WIDTH = COLS * SIZE;
+let HEIGHT = ROWS * SIZE;
+let board = [];
+let shapes = [];
+let colors = [];
+let currentPiece = null;
+let dropCounter = 0;
+let framesPerDrop = 30;
 let score = 0;
 let gameOver = false;
-function createParticles(px, py) {
-  for (let k = 0; k < 5; k++) {
-    let vx = random(-2, 2);
-    let vy = random(-2, 2);
-    particles.push({ x: px, y: py, vx: vx, vy: vy, r: 3, life: 20 });
-  }
-}
 function setup() {
-  createCanvas(400, 600);
-  player = { x: width / 2, y: height - 30, r: playerR };
-  for (let i = 0; i < 30; i++) {
-    stars.push({ x: random(width), y: random(height), s: random(1, 3), speed: random(0.5, 2) });
-  }
-  textAlign(LEFT, TOP);
-  textSize(18);
+  createCanvas(WIDTH, HEIGHT);
+  initBoard();
+  initShapes();
+  initColors();
+  spawnPiece();
+  textSize(16);
+  noStroke();
 }
 function draw() {
-  background(0);
-  noStroke();
-  fill(255);
-  for (let i = 0; i < stars.length; i++) {
-    let st = stars[i];
-    ellipse(st.x, st.y, st.s);
-    st.y += st.speed;
-    if (st.y > height) {
-      st.y = random(-20, 0);
-      st.x = random(width);
-    }
-  }
+  background(30);
+  drawBoard();
   if (!gameOver) {
-    if (keyIsDown(LEFT_ARROW)) {
-      player.x -= playerSpeed;
-    }
-    if (keyIsDown(RIGHT_ARROW)) {
-      player.x += playerSpeed;
-    }
-    if (player.x < player.r) {
-      player.x = player.r;
-    }
-    if (player.x > width - player.r) {
-      player.x = width - player.r;
+    framesPerDrop = keyIsDown(DOWN_ARROW) ? 2 : 30;
+    dropCounter++;
+    if (dropCounter >= framesPerDrop) {
+      movePiece(0, 1);
+      dropCounter = 0;
     }
   }
-  fill(0, 150, 255);
-  ellipse(player.x, player.y, player.r * 2);
-  for (let i = bullets.length - 1; i >= 0; i--) {
-    let b = bullets[i];
-    b.y -= b.speed;
-    fill(255, 255, 0);
-    ellipse(b.x, b.y, b.r * 2);
-    if (b.y < -b.r) {
-      bullets.splice(i, 1);
+  drawCurrentPiece();
+  fill(255);
+  text("Score: " + score, 5, 18);
+  if (gameOver) {
+    fill(200, 50, 50);
+    textSize(32);
+    textAlign(CENTER, CENTER);
+    text("GAME OVER", WIDTH / 2, HEIGHT / 2);
+    textAlign(LEFT, BASELINE);
+    textSize(16);
+  }
+}
+function initBoard() {
+  for (let y = 0; y < ROWS; y++) {
+    let row = [];
+    for (let x = 0; x < COLS; x++) {
+      row.push(0);
     }
+    board.push(row);
   }
-  if (!gameOver && frameCount % 60 === 0) {
-    let ex = random(12, width - 12);
-    enemies.push({ x: ex, y: -12, r: 12, speed: 2 });
-  }
-  for (let i = enemies.length - 1; i >= 0; i--) {
-    let e = enemies[i];
-    e.y += e.speed;
-    fill(255, 0, 0);
-    ellipse(e.x, e.y, e.r * 2);
-    if (e.y > height + e.r) {
-      enemies.splice(i, 1);
-      continue;
+}
+function initShapes() {
+  shapes = [
+    [
+      [0,0,0,0],
+      [1,1,1,1],
+      [0,0,0,0],
+      [0,0,0,0]
+    ],
+    [
+      [0,0,0,0],
+      [0,1,1,0],
+      [0,1,1,0],
+      [0,0,0,0]
+    ],
+    [
+      [0,0,0,0],
+      [0,1,0,0],
+      [1,1,1,0],
+      [0,0,0,0]
+    ],
+    [
+      [0,0,0,0],
+      [0,0,1,0],
+      [1,1,1,0],
+      [0,0,0,0]
+    ],
+    [
+      [0,0,0,0],
+      [1,0,0,0],
+      [1,1,1,0],
+      [0,0,0,0]
+    ],
+    [
+      [0,0,0,0],
+      [0,1,1,0],
+      [1,1,0,0],
+      [0,0,0,0]
+    ],
+    [
+      [0,0,0,0],
+      [1,1,0,0],
+      [0,1,1,0],
+      [0,0,0,0]
+    ]
+  ];
+}
+function initColors() {
+  colors = [
+    color(0, 240, 240),
+    color(240, 240, 0),
+    color(160, 0, 240),
+    color(240, 160, 0),
+    color(0, 0, 240),
+    color(0, 240, 0),
+    color(240, 0, 0)
+  ];
+}
+function copy4x4(m) {
+  let r = [];
+  for (let i = 0; i < 4; i++) {
+    let row = [];
+    for (let j = 0; j < 4; j++) {
+      row.push(m[i][j]);
     }
+    r.push(row);
   }
-  for (let i = enemies.length - 1; i >= 0; i--) {
-    let e = enemies[i];
-    let dxp = e.x - player.x;
-    let dyp = e.y - player.y;
-    let dist2p = dxp * dxp + dyp * dyp;
-    let rsumP = e.r + player.r;
-    if (dist2p <= rsumP * rsumP) {
-      gameOver = true;
-      break;
-    }
+  return r;
+}
+function spawnPiece() {
+  let idx = floor(random(0, shapes.length));
+  let shape = copy4x4(shapes[idx]);
+  currentPiece = {
+    shape: shape,
+    x: 3,
+    y: 0,
+    type: idx
+  };
+  if (collideWith(currentPiece.shape, currentPiece.x, currentPiece.y)) {
+    gameOver = true;
   }
-  for (let i = enemies.length - 1; i >= 0; i--) {
-    for (let j = bullets.length - 1; j >= 0; j--) {
-      if (i < 0 || j < 0) {
-        continue;
+}
+function collideWith(shape, px, py) {
+  for (let i = 0; i < 4; i++) {
+    for (let j = 0; j < 4; j++) {
+      if (shape[i][j] === 1) {
+        let gx = px + j;
+        let gy = py + i;
+        if (gx < 0 || gx >= COLS) {
+          return true;
+        }
+        if (gy >= ROWS) {
+          return true;
+        }
+        if (gy >= 0) {
+          if (board[gy][gx] !== 0) {
+            return true;
+          }
+        }
       }
-      let e = enemies[i];
-      let b = bullets[j];
-      let dx = e.x - b.x;
-      let dy = e.y - b.y;
-      let dist2 = dx * dx + dy * dy;
-      let rsum = e.r + b.r;
-      if (dist2 <= rsum * rsum) {
-        createParticles(e.x, e.y);
-        enemies.splice(i, 1);
-        bullets.splice(j, 1);
-        score += 1;
+    }
+  }
+  return false;
+}
+function movePiece(dx, dy) {
+  if (currentPiece === null) {
+    return;
+  }
+  let nx = currentPiece.x + dx;
+  let ny = currentPiece.y + dy;
+  if (!collideWith(currentPiece.shape, nx, ny)) {
+    currentPiece.x = nx;
+    currentPiece.y = ny;
+  } else {
+    if (dy === 1) {
+      lockPiece();
+    }
+  }
+}
+function lockPiece() {
+  if (currentPiece === null) {
+    return;
+  }
+  for (let i = 0; i < 4; i++) {
+    for (let j = 0; j < 4; j++) {
+      if (currentPiece.shape[i][j] === 1) {
+        let gx = currentPiece.x + j;
+        let gy = currentPiece.y + i;
+        if (gy < 0) {
+          gameOver = true;
+        } else {
+          board[gy][gx] = currentPiece.type + 1;
+        }
+      }
+    }
+  }
+  clearLines();
+  spawnPiece();
+}
+function clearLines() {
+  let linesCleared = 0;
+  for (let y = ROWS - 1; y >= 0; y--) {
+    let full = true;
+    for (let x = 0; x < COLS; x++) {
+      if (board[y][x] === 0) {
+        full = false;
         break;
       }
     }
-  }
-  for (let i = particles.length - 1; i >= 0; i--) {
-    let p = particles[i];
-    p.x += p.vx;
-    p.y += p.vy;
-    p.life -= 1;
-    let alpha = map(p.life, 0, 20, 0, 255);
-    fill(255, 200, 0, alpha);
-    ellipse(p.x, p.y, p.r * 2);
-    if (p.life <= 0) {
-      particles.splice(i, 1);
+    if (full) {
+      board.splice(y, 1);
+      let newRow = [];
+      for (let k = 0; k < COLS; k++) {
+        newRow.push(0);
+      }
+      board.unshift(newRow);
+      linesCleared++;
+      y++;
     }
   }
-  fill(255);
-  text("Score: " + score, 10, 10);
-  if (gameOver) {
-    push();
-    textAlign(CENTER, CENTER);
-    textSize(32);
-    fill(255, 50, 50);
-    text("GAME OVER", width / 2, height / 2);
-    pop();
+  if (linesCleared > 0) {
+    score += linesCleared * 100;
+  }
+}
+function rotateMatrix(shape) {
+  let m = [];
+  for (let i = 0; i < 4; i++) {
+    let row = [];
+    for (let j = 0; j < 4; j++) {
+      row.push(0);
+    }
+    m.push(row);
+  }
+  for (let i = 0; i < 4; i++) {
+    for (let j = 0; j < 4; j++) {
+      m[j][3 - i] = shape[i][j];
+    }
+  }
+  return m;
+}
+function drawBoard() {
+  for (let y = 0; y < ROWS; y++) {
+    for (let x = 0; x < COLS; x++) {
+      let v = board[y][x];
+      if (v === 0) {
+        fill(20);
+        rect(x * SIZE, y * SIZE, SIZE - 1, SIZE - 1);
+      } else {
+        let col = colors[v - 1];
+        fill(col);
+        rect(x * SIZE, y * SIZE, SIZE - 1, SIZE - 1);
+      }
+    }
+  }
+}
+function drawCurrentPiece() {
+  if (currentPiece === null) {
+    return;
+  }
+  let col = colors[currentPiece.type];
+  fill(col);
+  for (let i = 0; i < 4; i++) {
+    for (let j = 0; j < 4; j++) {
+      if (currentPiece.shape[i][j] === 1) {
+        let gx = currentPiece.x + j;
+        let gy = currentPiece.y + i;
+        if (gy >= 0) {
+          rect(gx * SIZE, gy * SIZE, SIZE - 1, SIZE - 1);
+        }
+      }
+    }
   }
 }
 function keyPressed() {
-  if (keyCode === 32 && !gameOver) {
-    let bx = player.x;
-    let by = player.y - player.r - 6;
-    bullets.push({ x: bx, y: by, r: 6, speed: 8 });
+  if (gameOver) {
+    return;
+  }
+  if (keyCode === LEFT_ARROW) {
+    movePiece(-1, 0);
+  } else if (keyCode === RIGHT_ARROW) {
+    movePiece(1, 0);
+  } else if (keyCode === DOWN_ARROW) {
+    movePiece(0, 1);
+    dropCounter = 0;
+  } else if (keyCode === UP_ARROW) {
+    let rotated = rotateMatrix(currentPiece.shape);
+    if (!collideWith(rotated, currentPiece.x, currentPiece.y)) {
+      currentPiece.shape = rotated;
+    }
   }
 }
