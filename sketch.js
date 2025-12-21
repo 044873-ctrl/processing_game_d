@@ -1,265 +1,182 @@
-let cols = 10;
-let rows = 20;
-let cell = 30;
-let canvasW = cols * cell;
-let canvasH = rows * cell;
-let board = [];
-let currentPiece = null;
-let pieces = [];
-let colors = [];
-let frameCounter = 0;
+let player;
+let bullets = [];
+let enemies = [];
+let particles = [];
+let stars = [];
 let score = 0;
 let gameOver = false;
-function createEmptyBoard() {
-  let b = [];
-  for (let r = 0; r < rows; r++) {
-    let row = [];
-    for (let c = 0; c < cols; c++) {
-      row.push(0);
-    }
-    b.push(row);
-  }
+let spawnCounter = 0;
+let fireCooldown = 0;
+function createStar(x,y,speed,sz){
+  let st = {x:x,y:y,spd:speed,sz:sz};
+  return st;
+}
+function createBullet(x,y,vy,r){
+  let b = {x:x,y:y,vy:vy,r:r};
   return b;
 }
-function definePieces() {
-  pieces = [
-    [
-      [0,0,0,0],
-      [1,1,1,1],
-      [0,0,0,0],
-      [0,0,0,0]
-    ],
-    [
-      [0,0,0,0],
-      [0,1,1,0],
-      [0,1,1,0],
-      [0,0,0,0]
-    ],
-    [
-      [0,0,0,0],
-      [0,1,0,0],
-      [1,1,1,0],
-      [0,0,0,0]
-    ],
-    [
-      [0,0,0,0],
-      [0,0,1,0],
-      [1,1,1,0],
-      [0,0,0,0]
-    ],
-    [
-      [0,0,0,0],
-      [1,0,0,0],
-      [1,1,1,0],
-      [0,0,0,0]
-    ],
-    [
-      [0,0,0,0],
-      [0,1,1,0],
-      [1,1,0,0],
-      [0,0,0,0]
-    ],
-    [
-      [0,0,0,0],
-      [1,1,0,0],
-      [0,1,1,0],
-      [0,0,0,0]
-    ]
-  ];
-  colors = [
-    [0,255,255],
-    [255,255,0],
-    [160,0,255],
-    [255,150,0],
-    [0,0,255],
-    [0,255,0],
-    [255,0,0]
-  ];
+function createEnemy(x,y,vy,r){
+  let e = {x:x,y:y,vy:vy,r:r};
+  return e;
 }
-function rotateMatrix(m) {
-  let size = 4;
-  let res = [];
-  for (let r = 0; r < size; r++) {
-    let row = [];
-    for (let c = 0; c < size; c++) {
-      row.push(0);
-    }
-    res.push(row);
-  }
-  for (let r = 0; r < size; r++) {
-    for (let c = 0; c < size; c++) {
-      res[r][c] = m[size - 1 - c][r];
-    }
-  }
-  return res;
+function createParticle(x,y,vx,vy,r,life){
+  let p = {x:x,y:y,vx:vx,vy:vy,r:r,life:life};
+  return p;
 }
-function validPosition(px, py, shape) {
-  for (let r = 0; r < 4; r++) {
-    for (let c = 0; c < 4; c++) {
-      if (shape[r][c] !== 0) {
-        let x = px + c;
-        let y = py + r;
-        if (x < 0 || x >= cols || y >= rows) {
-          return false;
-        }
-        if (y >= 0) {
-          if (board[y][x] !== 0) {
-            return false;
-          }
-        }
-      }
-    }
+function setup(){
+  createCanvas(400,600);
+  player = {x:width/2,y:height-40,spd:5,r:16};
+  for(let i=0;i<30;i++){
+    let sx = Math.floor(random(0,width));
+    let sy = random(0,height);
+    let sspd = random(0.3,1.2);
+    let ssz = random(1,3);
+    stars.push(createStar(sx,sy,sspd,ssz));
   }
-  return true;
-}
-function lockPiece() {
-  let shape = currentPiece.shape;
-  for (let r = 0; r < 4; r++) {
-    for (let c = 0; c < 4; c++) {
-      if (shape[r][c] !== 0) {
-        let x = currentPiece.x + c;
-        let y = currentPiece.y + r;
-        if (y >= 0 && y < rows && x >= 0 && x < cols) {
-          board[y][x] = currentPiece.type + 1;
-        }
-      }
-    }
-  }
-  clearLines();
-}
-function clearLines() {
-  let lines = 0;
-  for (let r = rows - 1; r >= 0; r--) {
-    let full = true;
-    for (let c = 0; c < cols; c++) {
-      if (board[r][c] === 0) {
-        full = false;
-        break;
-      }
-    }
-    if (full) {
-      board.splice(r, 1);
-      let newRow = [];
-      for (let c = 0; c < cols; c++) {
-        newRow.push(0);
-      }
-      board.unshift(newRow);
-      lines++;
-      r++;
-    }
-  }
-  if (lines > 0) {
-    score += lines * 100;
-  }
-}
-function spawnPiece() {
-  let idx = floor(random(0, pieces.length));
-  let shape = pieces[idx].map(function(row){ return row.slice(); });
-  let px = 3;
-  let py = -1;
-  currentPiece = {shape: shape, x: px, y: py, type: idx};
-  if (!validPosition(currentPiece.x, currentPiece.y, currentPiece.shape)) {
-    gameOver = true;
-  }
-}
-function setup() {
-  createCanvas(canvasW, canvasH);
-  board = createEmptyBoard();
-  definePieces();
-  frameRate(60);
   score = 0;
-  frameCounter = 0;
   gameOver = false;
-  spawnPiece();
+  spawnCounter = 0;
+  fireCooldown = 0;
+  bullets = [];
+  enemies = [];
+  particles = [];
 }
-function drawCell(x, y, colIdx) {
-  if (colIdx === 0) {
-    noFill();
-    stroke(40);
-    rect(x, y, cell, cell);
-  } else {
-    let col = colors[colIdx - 1];
-    fill(col[0], col[1], col[2]);
-    stroke(30);
-    rect(x, y, cell, cell);
-  }
-}
-function draw() {
-  background(20);
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols; c++) {
-      let val = board[r][c];
-      drawCell(c * cell, r * cell, val);
+function draw(){
+  background(0);
+  for(let i=0;i<stars.length;i++){
+    let st = stars[i];
+    st.y += st.spd;
+    if(st.y>height){
+      st.y = random(-50,0);
+      st.x = random(0,width);
+      st.spd = random(0.3,1.2);
+      st.sz = random(1,3);
     }
+    noStroke();
+    fill(255);
+    ellipse(st.x,st.y,st.sz,st.sz);
   }
-  if (currentPiece !== null) {
-    for (let r = 0; r < 4; r++) {
-      for (let c = 0; c < 4; c++) {
-        if (currentPiece.shape[r][c] !== 0) {
-          let x = currentPiece.x + c;
-          let y = currentPiece.y + r;
-          if (y >= 0) {
-            let colIdx = currentPiece.type + 1;
-            drawCell(x * cell, y * cell, colIdx);
-          }
-        }
+  if(!gameOver){
+    if(keyIsDown(LEFT_ARROW)){
+      player.x -= player.spd;
+    }
+    if(keyIsDown(RIGHT_ARROW)){
+      player.x += player.spd;
+    }
+    if(player.x < 0 + player.r){
+      player.x = 0 + player.r;
+    }
+    if(player.x > width - player.r){
+      player.x = width - player.r;
+    }
+    if(fireCooldown>0){
+      fireCooldown--;
+    }
+    if(keyIsDown(32) && fireCooldown<=0){
+      bullets.push(createBullet(player.x,player.y-12,-8,4));
+      fireCooldown = 8;
+    }
+    spawnCounter++;
+    if(spawnCounter>=60){
+      spawnCounter = 0;
+      let ex = random(12,width-12);
+      let ey = -12;
+      enemies.push(createEnemy(ex,ey,2,12));
+    }
+    for(let i=bullets.length-1;i>=0;i--){
+      let b = bullets[i];
+      b.y += b.vy;
+      if(b.y < -b.r){
+        bullets.splice(i,1);
       }
     }
+    for(let i=enemies.length-1;i>=0;i--){
+      let e = enemies[i];
+      e.y += e.vy;
+      if(e.y > height + e.r){
+        enemies.splice(i,1);
+      }
+    }
+    for(let i=enemies.length-1;i>=0;i--){
+      let e = enemies[i];
+      let hit = false;
+      for(let j=bullets.length-1;j>=0;j--){
+        let b = bullets[j];
+        let dx = e.x - b.x;
+        let dy = e.y - b.y;
+        let dist2 = dx*dx + dy*dy;
+        let rsum = e.r + b.r;
+        if(dist2 <= rsum*rsum){
+          for(let k=0;k<5;k++){
+            let angle = random(0,Math.PI*2);
+            let sp = random(1,3);
+            let pvx = Math.cos(angle)*sp;
+            let pvy = Math.sin(angle)*sp;
+            particles.push(createParticle(e.x,e.y,pvx,pvy,3,20));
+          }
+          bullets.splice(j,1);
+          enemies.splice(i,1);
+          score += 1;
+          hit = true;
+          break;
+        }
+      }
+      if(hit){
+        continue;
+      }
+    }
+    for(let i=enemies.length-1;i>=0;i--){
+      let e = enemies[i];
+      let dx = e.x - player.x;
+      let dy = e.y - player.y;
+      let dist2 = dx*dx + dy*dy;
+      let rsum = e.r + player.r;
+      if(dist2 <= rsum*rsum){
+        gameOver = true;
+      }
+    }
+    for(let i=particles.length-1;i>=0;i--){
+      let p = particles[i];
+      p.x += p.vx;
+      p.y += p.vy;
+      p.life -= 1;
+      if(p.life <= 0){
+        particles.splice(i,1);
+      }
+    }
+  }
+  fill(0,128,255);
+  noStroke();
+  triangle(player.x,player.y-12,player.x-12,player.y+12,player.x+12,player.y+12);
+  for(let i=0;i<bullets.length;i++){
+    let b = bullets[i];
+    fill(255,255,0);
+    noStroke();
+    ellipse(b.x,b.y,b.r*2,b.r*2);
+  }
+  for(let i=0;i<enemies.length;i++){
+    let e = enemies[i];
+    fill(255,0,0);
+    noStroke();
+    ellipse(e.x,e.y,e.r*2,e.r*2);
+  }
+  for(let i=0;i<particles.length;i++){
+    let p = particles[i];
+    let alpha = map(p.life,0,20,0,255);
+    fill(255,150,0,alpha);
+    noStroke();
+    ellipse(p.x,p.y,p.r*2,p.r*2);
   }
   fill(255);
-  noStroke();
-  textSize(16);
-  textAlign(LEFT, TOP);
-  text("Score: " + score, 5, 5);
-  if (gameOver) {
-    fill(0, 180);
-    rect(0, 0, width, height);
-    fill(255);
-    textSize(32);
-    textAlign(CENTER, CENTER);
-    text("Game Over", width / 2, height / 2 - 20);
-    noLoop();
-    return;
-  }
-  let dropInterval = 30;
-  if (keyIsDown(DOWN_ARROW)) {
-    dropInterval = 2;
-  }
-  frameCounter++;
-  if (frameCounter >= dropInterval) {
-    frameCounter = 0;
-    if (validPosition(currentPiece.x, currentPiece.y + 1, currentPiece.shape)) {
-      currentPiece.y += 1;
-    } else {
-      lockPiece();
-      spawnPiece();
-    }
-  }
-}
-function keyPressed() {
-  if (gameOver) {
-    return;
-  }
-  if (keyCode === LEFT_ARROW) {
-    if (currentPiece !== null) {
-      if (validPosition(currentPiece.x - 1, currentPiece.y, currentPiece.shape)) {
-        currentPiece.x -= 1;
-      }
-    }
-  } else if (keyCode === RIGHT_ARROW) {
-    if (currentPiece !== null) {
-      if (validPosition(currentPiece.x + 1, currentPiece.y, currentPiece.shape)) {
-        currentPiece.x += 1;
-      }
-    }
-  } else if (keyCode === UP_ARROW) {
-    if (currentPiece !== null) {
-      let rotated = rotateMatrix(currentPiece.shape);
-      if (validPosition(currentPiece.x, currentPiece.y, rotated)) {
-        currentPiece.shape = rotated;
-      }
-    }
-  } else if (keyCode === DOWN_ARROW) {
-    frameCounter = 0;
+  textSize(18);
+  textAlign(LEFT,TOP);
+  text("Score: "+score,8,8);
+  if(gameOver){
+    fill(255,0,0);
+    textSize(36);
+    textAlign(CENTER,CENTER);
+    text("GAME OVER",width/2,height/2);
+    textSize(18);
+    text("Score: "+score,width/2,height/2+36);
   }
 }
