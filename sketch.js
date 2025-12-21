@@ -1,125 +1,117 @@
-let canvasW = 600;
-let canvasH = 400;
-let paddleW = 10;
-let paddleH = 80;
-let playerX = 20;
-let playerY = 0;
-let cpuX = 0;
-let cpuY = 0;
-let playerSpeed = 6;
-let cpuMaxSpeed = 5;
-let cpuMissTimer = 0;
-let cpuTargetY = 0;
-let cpuMissProb = 0.012;
-let ballR = 8;
-let ballX = 0;
-let ballY = 0;
-let ballVX = 4;
-let ballVY = 3;
-let maxBallVY = 8;
-let leftScore = 0;
-let rightScore = 0;
-function resetBall() {
-  ballX = canvasW / 2;
-  ballY = canvasH / 2;
-  ballVX = 4 * (Math.random() < 0.5 ? 1 : -1);
-  ballVY = 3 * (Math.random() < 0.5 ? 1 : -1);
-}
+let player;
+let bullets = [];
+let enemies = [];
+let particles = [];
+let stars = [];
+let score = 0;
+let shootCooldown = 0;
+let shootDelay = 10;
+let gameOver = false;
 function setup() {
-  createCanvas(canvasW, canvasH);
-  playerY = canvasH / 2 - paddleH / 2;
-  cpuX = canvasW - 20 - paddleW;
-  cpuY = canvasH / 2 - paddleH / 2;
-  cpuTargetY = cpuY;
-  resetBall();
-  leftScore = 0;
-  rightScore = 0;
-  textSize(32);
-  textAlign(CENTER, TOP);
+  createCanvas(400, 600);
+  player = { x: width / 2, y: height - 40, r: 16, speed: 5 };
+  for (let i = 0; i < 30; i++) {
+    let s = { x: random(0, width), y: random(0, height), size: random(1, 3), speed: random(0.5, 2) };
+    stars.push(s);
+  }
+  textSize(16);
+  textAlign(LEFT, TOP);
 }
 function draw() {
   background(0);
-  stroke(255);
-  for (let i = 0; i < canvasH; i += 20) {
-    line(canvasW / 2, i, canvasW / 2, i + 10);
-  }
+  noStroke();
   fill(255);
-  rect(playerX, playerY, paddleW, paddleH);
-  rect(cpuX, cpuY, paddleW, paddleH);
-  ellipse(ballX, ballY, ballR * 2, ballR * 2);
-  text(leftScore, canvasW * 0.25, 10);
-  text(rightScore, canvasW * 0.75, 10);
-  if (keyIsDown(UP_ARROW)) {
-    playerY -= playerSpeed;
-  }
-  if (keyIsDown(DOWN_ARROW)) {
-    playerY += playerSpeed;
-  }
-  playerY = constrain(playerY, 0, canvasH - paddleH);
-  if (cpuMissTimer > 0) {
-    cpuMissTimer -= 1;
-    let centerY = cpuY + paddleH / 2;
-    let dy = cpuTargetY + paddleH / 2 - centerY;
-    if (dy > cpuMaxSpeed) {
-      dy = cpuMaxSpeed;
+  for (let i = 0; i < stars.length; i++) {
+    let s = stars[i];
+    ellipse(s.x, s.y, s.size, s.size);
+    if (!gameOver) {
+      s.y += s.speed;
     }
-    if (dy < -cpuMaxSpeed) {
-      dy = -cpuMaxSpeed;
+    if (s.y > height + s.size) {
+      s.y = -s.size;
+      s.x = random(0, width);
+      s.size = random(1, 3);
+      s.speed = random(0.5, 2);
     }
-    cpuY += dy;
-  } else {
-    if (ballX > canvasW / 2 && Math.random() < cpuMissProb) {
-      cpuMissTimer = 30;
-      cpuTargetY = Math.random() * (canvasH - paddleH);
-      cpuTargetY = constrain(cpuTargetY, 0, canvasH - paddleH);
-    } else {
-      let desiredY = ballY - paddleH / 2;
-      let centerY = cpuY + paddleH / 2;
-      let dy = desiredY + paddleH / 2 - centerY;
-      if (dy > cpuMaxSpeed) {
-        dy = cpuMaxSpeed;
+  }
+  if (!gameOver) {
+    if (keyIsDown(LEFT_ARROW)) {
+      player.x -= player.speed;
+    }
+    if (keyIsDown(RIGHT_ARROW)) {
+      player.x += player.speed;
+    }
+    player.x = constrain(player.x, player.r, width - player.r);
+    if (shootCooldown > 0) {
+      shootCooldown--;
+    }
+    if (keyIsDown(32) && shootCooldown <= 0) {
+      let b = { x: player.x, y: player.y - player.r, r: 4, vy: -8 };
+      bullets.push(b);
+      shootCooldown = shootDelay;
+    }
+    if (frameCount % 60 === 0) {
+      let e = { x: random(12, width - 12), y: -12, r: 12, vy: 2 };
+      enemies.push(e);
+    }
+  }
+  for (let i = bullets.length - 1; i >= 0; i--) {
+    let b = bullets[i];
+    if (!gameOver) {
+      b.y += b.vy;
+    }
+    fill(200, 220, 255);
+    ellipse(b.x, b.y, b.r * 2, b.r * 2);
+    if (b.y < -b.r) {
+      bullets.splice(i, 1);
+    }
+  }
+  for (let i = enemies.length - 1; i >= 0; i--) {
+    let e = enemies[i];
+    if (!gameOver) {
+      e.y += e.vy;
+    }
+    fill(220, 80, 80);
+    ellipse(e.x, e.y, e.r * 2, e.r * 2);
+    if (e.y > height + e.r) {
+      enemies.splice(i, 1);
+      continue;
+    }
+    if (!gameOver) {
+      for (let j = bullets.length - 1; j >= 0; j--) {
+        let b = bullets[j];
+        let d = dist(e.x, e.y, b.x, b.y);
+        if (d <= e.r + b.r) {
+          for (let k = 0; k < 5; k++) {
+            let p = { x: e.x, y: e.y, r: 3, vx: random(-2, 2), vy: random(-2, 2), life: 20 };
+            particles.push(p);
+          }
+          score += 1;
+          bullets.splice(j, 1);
+          enemies.splice(i, 1);
+          break;
+        }
       }
-      if (dy < -cpuMaxSpeed) {
-        dy = -cpuMaxSpeed;
-      }
-      cpuY += dy;
+    }
+    let dp = dist(player.x, player.y, e.x, e.y);
+    if (dp <= player.r + e.r) {
+      gameOver = true;
     }
   }
-  cpuY = constrain(cpuY, 0, canvasH - paddleH);
-  ballX += ballVX;
-  ballY += ballVY;
-  if (ballY - ballR <= 0) {
-    ballY = ballR;
-    ballVY = -ballVY;
-  }
-  if (ballY + ballR >= canvasH) {
-    ballY = canvasH - ballR;
-    ballVY = -ballVY;
-  }
-  if (ballX - ballR <= playerX + paddleW && ballX + ballR >= playerX) {
-    if (ballY >= playerY && ballY <= playerY + paddleH && ballVX < 0) {
-      ballX = playerX + paddleW + ballR;
-      ballVX = -ballVX;
-      let offset = (ballY - (playerY + paddleH / 2)) / (paddleH / 2);
-      ballVY = ballVY + offset * 5;
-      ballVY = constrain(ballVY, -maxBallVY, maxBallVY);
+  for (let i = particles.length - 1; i >= 0; i--) {
+    let p = particles[i];
+    p.x += p.vx;
+    p.y += p.vy;
+    p.life = p.life - 1;
+    let alpha = constrain((p.life / 20) * 255, 0, 255);
+    fill(255, 200, 100, alpha);
+    ellipse(p.x, p.y, p.r * 2, p.r * 2);
+    if (p.life <= 0) {
+      particles.splice(i, 1);
     }
   }
-  if (ballX + ballR >= cpuX && ballX - ballR <= cpuX + paddleW) {
-    if (ballY >= cpuY && ballY <= cpuY + paddleH && ballVX > 0) {
-      ballX = cpuX - ballR;
-      ballVX = -ballVX;
-      let offset = (ballY - (cpuY + paddleH / 2)) / (paddleH / 2);
-      ballVY = ballVY + offset * 5;
-      ballVY = constrain(ballVY, -maxBallVY, maxBallVY);
-    }
-  }
-  if (ballX < 0) {
-    rightScore += 1;
-    resetBall();
-  }
-  if (ballX > canvasW) {
-    leftScore += 1;
-    resetBall();
-  }
+  fill(100, 180, 255);
+  triangle(player.x, player.y - player.r, player.x - player.r, player.y + player.r, player.x + player.r, player.y + player.r);
+  fill(255);
+  text(score, 10, 10);
 }
