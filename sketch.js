@@ -1,118 +1,155 @@
-let canvasW = 600;
-let canvasH = 400;
-let paddleW = 10;
-let paddleH = 80;
-let playerSpeed = 20;
-let cpuMaxSpeed = 15;
-let ballR = 8;
-let playerX = 10;
-let cpuX = canvasW - paddleW - 10;
-let playerY = (canvasH - paddleH) / 2;
-let cpuY = (canvasH - paddleH) / 2;
-let ballX = canvasW / 2;
-let ballY = canvasH / 2;
-let ballVX = 4;
-let ballVY = 3;
-let leftScore = 0;
-let rightScore = 0;
-let cpuMissFrames = 0;
-let cpuTargetY = canvasH / 2;
-function resetBall() {
-  ballX = canvasW / 2;
-  ballY = canvasH / 2;
-  ballVX = (random() < 0.5) ? 4 : -4;
-  ballVY = (random() < 0.5) ? 3 : -3;
-  cpuMissFrames = 0;
-  cpuTargetY = canvasH / 2;
+let CANVAS_W = 600;
+let CANVAS_H = 400;
+let PADDLE_W = 10;
+let PADDLE_H = 80;
+let PLAYER_SPEED = 20;
+let CPU_MAX_SPEED = 15;
+let BALL_R = 8;
+let INIT_BALL_VX = 6;
+let INIT_BALL_VY = 4;
+let MISS_DURATION = 30;
+let CPU_MISS_PROB = 0.004;
+let player = {
+  x: 20,
+  y: (CANVAS_H - PADDLE_H) / 2,
+  w: PADDLE_W,
+  h: PADDLE_H
+};
+let cpu = {
+  x: CANVAS_W - 20 - PADDLE_W,
+  y: (CANVAS_H - PADDLE_H) / 2,
+  w: PADDLE_W,
+  h: PADDLE_H,
+  missFrames: 0,
+  targetY: (CANVAS_H) / 2
+};
+let ball = {
+  x: CANVAS_W / 2,
+  y: CANVAS_H / 2,
+  vx: INIT_BALL_VX,
+  vy: INIT_BALL_VY,
+  r: BALL_R
+};
+let score = {
+  player: 0,
+  cpu: 0
+};
+function resetBall(cpuScored) {
+  ball.x = CANVAS_W / 2;
+  ball.y = CANVAS_H / 2;
+  let dir = cpuScored ? 1 : -1;
+  ball.vx = INIT_BALL_VX * dir;
+  ball.vy = INIT_BALL_VY * (random() < 0.5 ? 1 : -1);
+}
+function handlePaddleCollision(p, isLeft) {
+  let left = p.x;
+  let right = p.x + p.w;
+  let top = p.y;
+  let bottom = p.y + p.h;
+  let collided = false;
+  if (ball.x - ball.r <= right && ball.x + ball.r >= left && ball.y >= top && ball.y <= bottom) {
+    collided = true;
+    if (isLeft) {
+      ball.x = right + ball.r;
+      ball.vx = abs(ball.vx);
+    } else {
+      ball.x = left - ball.r;
+      ball.vx = -abs(ball.vx);
+    }
+    let centerY = top + p.h / 2;
+    let relative = (ball.y - centerY) / (p.h / 2);
+    if (relative > 1) {
+      relative = 1;
+    }
+    if (relative < -1) {
+      relative = -1;
+    }
+    ball.vy = relative * 8;
+  }
+  return collided;
 }
 function setup() {
-  createCanvas(canvasW, canvasH);
-  resetBall();
-  textSize(32);
+  createCanvas(CANVAS_W, CANVAS_H);
+  rectMode(CORNER);
   textAlign(CENTER, TOP);
+  textSize(32);
 }
 function draw() {
   background(0);
   fill(255);
-  rect(playerX, playerY, paddleW, paddleH);
-  rect(cpuX, cpuY, paddleW, paddleH);
-  ellipse(ballX, ballY, ballR * 2, ballR * 2);
+  let playerCenterY = player.y + player.h / 2;
   if (keyIsDown(UP_ARROW)) {
-    playerY -= playerSpeed;
+    player.y -= PLAYER_SPEED;
   }
   if (keyIsDown(DOWN_ARROW)) {
-    playerY += playerSpeed;
+    player.y += PLAYER_SPEED;
   }
-  playerY = constrain(playerY, 0, canvasH - paddleH);
-  if (cpuMissFrames > 0) {
-    cpuMissFrames -= 1;
+  if (player.y < 0) {
+    player.y = 0;
   }
-  if (cpuMissFrames > 0) {
-    let targetCenterY = cpuTargetY;
-    let cpuCenterY = cpuY + paddleH / 2;
-    let dy = targetCenterY - cpuCenterY;
-    if (abs(dy) <= cpuMaxSpeed) {
-      cpuY += dy;
-    } else {
-      cpuY += cpuMaxSpeed * (dy > 0 ? 1 : -1);
+  if (player.y > CANVAS_H - player.h) {
+    player.y = CANVAS_H - player.h;
+  }
+  if (cpu.missFrames > 0) {
+    cpu.missFrames -= 1;
+    let cpuCenterY = cpu.y + cpu.h / 2;
+    let dy = cpu.targetY - cpuCenterY;
+    if (dy > CPU_MAX_SPEED) {
+      dy = CPU_MAX_SPEED;
     }
+    if (dy < -CPU_MAX_SPEED) {
+      dy = -CPU_MAX_SPEED;
+    }
+    cpu.y += dy;
   } else {
-    if (ballVX > 0 && ballX > canvasW / 2 && random() < 0.01) {
-      cpuMissFrames = 30;
-      cpuTargetY = random(paddleH / 2, canvasH - paddleH / 2);
-    } else {
-      let targetCenterY = ballY;
-      let cpuCenterY = cpuY + paddleH / 2;
-      let dy = targetCenterY - cpuCenterY;
-      if (abs(dy) <= cpuMaxSpeed) {
-        cpuY += dy;
-      } else {
-        cpuY += cpuMaxSpeed * (dy > 0 ? 1 : -1);
-      }
+    if (ball.vx > 0 && ball.x > CANVAS_W / 2 && random() < CPU_MISS_PROB) {
+      cpu.missFrames = MISS_DURATION;
+      cpu.targetY = random(cpu.h / 2, CANVAS_H - cpu.h / 2);
     }
-  }
-  cpuY = constrain(cpuY, 0, canvasH - paddleH);
-  ballX += ballVX;
-  ballY += ballVY;
-  if (ballY - ballR <= 0) {
-    ballY = ballR;
-    ballVY = abs(ballVY);
-  }
-  if (ballY + ballR >= canvasH) {
-    ballY = canvasH - ballR;
-    ballVY = -abs(ballVY);
-  }
-  if (ballX - ballR <= playerX + paddleW && ballX - ballR >= playerX) {
-    if (ballY >= playerY && ballY <= playerY + paddleH) {
-      ballX = playerX + paddleW + ballR;
-      ballVX = abs(ballVX);
-      let relative = (ballY - (playerY + paddleH / 2)) / (paddleH / 2);
-      ballVY = relative * 6;
-      if (abs(ballVY) < 0.5) {
-        ballVY = ballVY >= 0 ? 0.5 : -0.5;
-      }
+    let cpuCenterY = cpu.y + cpu.h / 2;
+    let target = ball.y;
+    let dy = target - cpuCenterY;
+    if (dy > CPU_MAX_SPEED) {
+      dy = CPU_MAX_SPEED;
     }
-  }
-  if (ballX + ballR >= cpuX && ballX + ballR <= cpuX + paddleW) {
-    if (ballY >= cpuY && ballY <= cpuY + paddleH) {
-      ballX = cpuX - ballR;
-      ballVX = -abs(ballVX);
-      let relative = (ballY - (cpuY + paddleH / 2)) / (paddleH / 2);
-      ballVY = relative * 6;
-      if (abs(ballVY) < 0.5) {
-        ballVY = ballVY >= 0 ? 0.5 : -0.5;
-      }
+    if (dy < -CPU_MAX_SPEED) {
+      dy = -CPU_MAX_SPEED;
     }
+    cpu.y += dy;
   }
-  if (ballX + ballR < 0) {
-    rightScore += 1;
-    resetBall();
+  if (cpu.y < 0) {
+    cpu.y = 0;
   }
-  if (ballX - ballR > canvasW) {
-    leftScore += 1;
-    resetBall();
+  if (cpu.y > CANVAS_H - cpu.h) {
+    cpu.y = CANVAS_H - cpu.h;
   }
+  ball.x += ball.vx;
+  ball.y += ball.vy;
+  if (ball.y - ball.r <= 0) {
+    ball.y = ball.r;
+    ball.vy = abs(ball.vy);
+  }
+  if (ball.y + ball.r >= CANVAS_H) {
+    ball.y = CANVAS_H - ball.r;
+    ball.vy = -abs(ball.vy);
+  }
+  if (ball.x - ball.r < 0) {
+    score.cpu += 1;
+    resetBall(true);
+  }
+  if (ball.x + ball.r > CANVAS_W) {
+    score.player += 1;
+    resetBall(false);
+  }
+  if (ball.vx < 0) {
+    handlePaddleCollision(player, true);
+  } else {
+    handlePaddleCollision(cpu, false);
+  }
+  rect(player.x, player.y, player.w, player.h);
+  rect(cpu.x, cpu.y, cpu.w, cpu.h);
+  ellipse(ball.x, ball.y, ball.r * 2, ball.r * 2);
   fill(255);
-  text(leftScore, canvasW / 4, 10);
-  text(rightScore, (canvasW * 3) / 4, 10);
+  text(score.player, CANVAS_W * 0.25, 10);
+  text(score.cpu, CANVAS_W * 0.75, 10);
 }
