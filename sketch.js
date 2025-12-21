@@ -1,258 +1,98 @@
-let board = [];
-let rows = 8;
-let cols = 8;
-let cellSize = 50;
-let currentPlayer = 1;
-let dirs = [
-  [-1, -1],
-  [-1, 0],
-  [-1, 1],
-  [0, -1],
-  [0, 1],
-  [1, -1],
-  [1, 0],
-  [1, 1]
-];
-let gameOver = false;
+var pw = 10;
+var ph = 80;
+var player = {x:10, y:0, w:pw, h:ph, speed:6};
+var cpu = {x:0, y:0, w:pw, h:ph, maxSpeed:5, missTimer:0, targetY:0};
+var ball = {x:0, y:0, r:8, vx:4, vy:3};
+var playerScore = 0;
+var cpuScore = 0;
+var lastServeDir = 1;
+
+function resetBall() {
+  ball.x = width / 2;
+  ball.y = height / 2;
+  ball.vx = 4 * lastServeDir;
+  ball.vy = 3 * (random() < 0.5 ? 1 : -1);
+  cpu.missTimer = 0;
+  cpu.targetY = constrain(ball.y - cpu.h / 2, 0, height - cpu.h);
+}
+
 function setup() {
-  createCanvas(400, 400);
-  initBoard();
+  createCanvas(600, 400);
+  player.y = (height - player.h) / 2;
+  cpu.x = width - 10 - cpu.w;
+  cpu.y = (height - cpu.h) / 2;
+  lastServeDir = 1;
+  resetBall();
+  textSize(32);
+  textAlign(CENTER, TOP);
 }
+
 function draw() {
-  background(34, 139, 34);
-  drawGrid();
-  drawStones();
-  let blackMoves = computeValidMoves(1);
-  let whiteMoves = computeValidMoves(2);
-  if (!gameOver) {
-    if (currentPlayer === 1) {
-      for (let i = 0; i < blackMoves.length; i++) {
-        let mv = blackMoves[i];
-        fill(0, 0, 0, 80);
-        noStroke();
-        ellipse(mv.c * cellSize + cellSize / 2, mv.r * cellSize + cellSize / 2, 12, 12);
-      }
-      if (blackMoves.length === 0) {
-        doAIMove();
-      }
-    }
+  background(0);
+  fill(255);
+  if (keyIsDown(UP_ARROW)) {
+    player.y -= player.speed;
   }
-  drawCounts();
-  if (!gameOver && currentPlayer === 2 && whiteMoves.length > 0) {
-    doAIMove();
+  if (keyIsDown(DOWN_ARROW)) {
+    player.y += player.speed;
   }
-}
-function initBoard() {
-  for (let r = 0; r < rows; r++) {
-    let row = [];
-    for (let c = 0; c < cols; c++) {
-      row.push(0);
-    }
-    board.push(row);
-  }
-  board[3][3] = 2;
-  board[3][4] = 1;
-  board[4][3] = 1;
-  board[4][4] = 2;
-}
-function drawGrid() {
-  stroke(0);
-  for (let i = 0; i <= rows; i++) {
-    line(0, i * cellSize, cols * cellSize, i * cellSize);
-  }
-  for (let j = 0; j <= cols; j++) {
-    line(j * cellSize, 0, j * cellSize, rows * cellSize);
-  }
-}
-function drawStones() {
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols; c++) {
-      let v = board[r][c];
-      if (v === 1) {
-        fill(0);
-        stroke(200);
-        ellipse(c * cellSize + cellSize / 2, r * cellSize + cellSize / 2, cellSize - 8, cellSize - 8);
-      } else if (v === 2) {
-        fill(255);
-        stroke(0);
-        ellipse(c * cellSize + cellSize / 2, r * cellSize + cellSize / 2, cellSize - 8, cellSize - 8);
-      }
-    }
-  }
-}
-function mousePressed() {
-  if (gameOver) {
-    return;
-  }
-  if (mouseX < 0 || mouseX >= cols * cellSize || mouseY < 0 || mouseY >= rows * cellSize) {
-    return;
-  }
-  if (currentPlayer !== 1) {
-    return;
-  }
-  let c = Math.floor(mouseX / cellSize);
-  let r = Math.floor(mouseY / cellSize);
-  if (r < 0 || r >= rows || c < 0 || c >= cols) {
-    return;
-  }
-  let flips = getFlips(r, c, 1);
-  if (flips.length === 0) {
-    return;
-  }
-  applyMove(r, c, 1, flips);
-  currentPlayer = 2;
-  let blackMoves = computeValidMoves(1);
-  let whiteMoves = computeValidMoves(2);
-  if (whiteMoves.length === 0 && blackMoves.length === 0) {
-    gameOver = true;
-    return;
-  }
-  doAIMove();
-}
-function getFlips(r, c, player) {
-  let result = [];
-  if (board[r][c] !== 0) {
-    return result;
-  }
-  for (let d = 0; d < dirs.length; d++) {
-    let dir = dirs[d];
-    let rr = r + dir[0];
-    let cc = c + dir[1];
-    let temp = [];
-    while (rr >= 0 && rr < rows && cc >= 0 && cc < cols) {
-      if (board[rr][cc] === 0) {
-        temp = [];
-        break;
-      }
-      if (board[rr][cc] === player) {
-        break;
-      }
-      temp.push([rr, cc]);
-      rr += dir[0];
-      cc += dir[1];
-    }
-    if (rr >= 0 && rr < rows && cc >= 0 && cc < cols) {
-      if (board[rr][cc] === player && temp.length > 0) {
-        for (let k = 0; k < temp.length; k++) {
-          result.push(temp[k]);
-        }
-      }
-    }
-  }
-  return result;
-}
-function computeValidMoves(player) {
-  let moves = [];
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols; c++) {
-      if (board[r][c] !== 0) {
-        continue;
-      }
-      let flips = getFlips(r, c, player);
-      if (flips.length > 0) {
-        moves.push({ r: r, c: c, flips: flips });
-      }
-    }
-  }
-  return moves;
-}
-function applyMove(r, c, player, flips) {
-  board[r][c] = player;
-  for (let i = 0; i < flips.length; i++) {
-    let p = flips[i];
-    board[p[0]][p[1]] = player;
-  }
-}
-function doAIMove() {
-  if (gameOver) {
-    return;
-  }
-  let whiteMoves = computeValidMoves(2);
-  if (whiteMoves.length === 0) {
-    let blackMoves = computeValidMoves(1);
-    if (blackMoves.length === 0) {
-      gameOver = true;
-      return;
+  player.y = constrain(player.y, 0, height - player.h);
+  if (cpu.missTimer > 0) {
+    cpu.missTimer -= 1;
+    var dyMiss = cpu.targetY - cpu.y;
+    var moveMiss = constrain(dyMiss, -cpu.maxSpeed, cpu.maxSpeed);
+    cpu.y += moveMiss;
+  } else {
+    if (ball.vx > 0 && random() < 0.005) {
+      cpu.missTimer = 30;
+      cpu.targetY = random(0, height - cpu.h);
     } else {
-      currentPlayer = 1;
-      return;
+      var target = ball.y - cpu.h / 2;
+      var dy = target - cpu.y;
+      var move = constrain(dy, -cpu.maxSpeed, cpu.maxSpeed);
+      cpu.y += move;
     }
   }
-  let best = [];
-  let bestCount = -1;
-  for (let i = 0; i < whiteMoves.length; i++) {
-    let mv = whiteMoves[i];
-    let cnt = mv.flips.length;
-    if (cnt > bestCount) {
-      bestCount = cnt;
-      best = [mv];
-    } else if (cnt === bestCount) {
-      best.push(mv);
-    }
+  cpu.y = constrain(cpu.y, 0, height - cpu.h);
+  ball.x += ball.vx;
+  ball.y += ball.vy;
+  if (ball.y - ball.r <= 0) {
+    ball.y = ball.r;
+    ball.vy = -ball.vy;
   }
-  let choice = best[Math.floor(Math.random() * best.length)];
-  if (choice !== undefined) {
-    applyMove(choice.r, choice.c, 2, choice.flips);
+  if (ball.y + ball.r >= height) {
+    ball.y = height - ball.r;
+    ball.vy = -ball.vy;
   }
-  currentPlayer = 1;
-  let blackMovesAfter = computeValidMoves(1);
-  let whiteMovesAfter = computeValidMoves(2);
-  if (blackMovesAfter.length === 0 && whiteMovesAfter.length === 0) {
-    gameOver = true;
+  if (ball.x - ball.r <= player.x + player.w && ball.x + ball.r >= player.x && ball.y >= player.y && ball.y <= player.y + player.h && ball.vx < 0) {
+    var paddleCenter = player.y + player.h / 2;
+    var diff = (ball.y - paddleCenter) / (player.h / 2);
+    diff = constrain(diff, -1, 1);
+    ball.vx = -ball.vx;
+    ball.vy = diff * 5;
+    ball.x = player.x + player.w + ball.r + 0.1;
   }
-}
-function drawCounts() {
-  let blackCount = 0;
-  let whiteCount = 0;
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols; c++) {
-      if (board[r][c] === 1) {
-        blackCount++;
-      } else if (board[r][c] === 2) {
-        whiteCount++;
-      }
-    }
+  if (ball.x + ball.r >= cpu.x && ball.x - ball.r <= cpu.x + cpu.w && ball.y >= cpu.y && ball.y <= cpu.y + cpu.h && ball.vx > 0) {
+    var paddleCenterR = cpu.y + cpu.h / 2;
+    var diffR = (ball.y - paddleCenterR) / (cpu.h / 2);
+    diffR = constrain(diffR, -1, 1);
+    ball.vx = -ball.vx;
+    ball.vy = diffR * 5;
+    ball.x = cpu.x - ball.r - 0.1;
   }
-  noStroke();
-  fill(0);
-  ellipse(10, height - 18, 16, 16);
+  if (ball.x - ball.r <= 0) {
+    cpuScore += 1;
+    lastServeDir = -lastServeDir;
+    resetBall();
+  } else if (ball.x + ball.r >= width) {
+    playerScore += 1;
+    lastServeDir = -lastServeDir;
+    resetBall();
+  }
+  rect(player.x, player.y, player.w, player.h);
+  rect(cpu.x, cpu.y, cpu.w, cpu.h);
+  ellipse(ball.x, ball.y, ball.r * 2, ball.r * 2);
   fill(255);
-  textSize(12);
-  fill(255);
-  textAlign(LEFT, CENTER);
-  fill(255);
-  text(blackCount, 20, height - 18);
-  fill(255);
-  ellipse(width - 60, height - 18, 16, 16);
-  fill(0);
-  text(whiteCount, width - 48, height - 18);
-  if (gameOver) {
-    let winner = 0;
-    if (blackCount > whiteCount) {
-      winner = 1;
-    } else if (whiteCount > blackCount) {
-      winner = 2;
-    } else {
-      winner = 0;
-    }
-    fill(0, 150);
-    rect(50, 140, 300, 120, 8);
-    fill(255);
-    textSize(24);
-    textAlign(CENTER, CENTER);
-    if (winner === 1) {
-      fill(0);
-      ellipse(width / 2 - 40, 200, 28, 28);
-      fill(255);
-      text(String(blackCount) + " - " + String(whiteCount), width / 2 + 20, 200);
-    } else if (winner === 2) {
-      fill(255);
-      ellipse(width / 2 - 40, 200, 28, 28);
-      fill(0);
-      text(String(blackCount) + " - " + String(whiteCount), width / 2 + 20, 200);
-    } else {
-      fill(255);
-      text(String(blackCount) + " - " + String(whiteCount), width / 2, 200);
-    }
-  }
+  text(playerScore, width * 0.25, 10);
+  text(cpuScore, width * 0.75, 10);
 }
