@@ -113,13 +113,9 @@ function initShapes(){
   shapes.push(J);
   shapes.push(S);
   shapes.push(Z);
-  colors.push([80,200,240]);
-  colors.push([240,200,80]);
-  colors.push([160,80,240]);
-  colors.push([240,160,80]);
-  colors.push([80,120,240]);
-  colors.push([120,240,120]);
-  colors.push([240,80,80]);
+  for(let i=0;i<shapes.length;i++){
+    colors.push([240,240,0]);
+  }
 }
 function spawnPiece(){
   let idx = floor(random(shapes.length));
@@ -228,7 +224,7 @@ function drawBoard(){
       let x = c * cellSize;
       let y = r * cellSize;
       if(board[r][c]===1){
-        fill(180);
+        fill(240,240,0);
         rect(x,y,cellSize,cellSize);
       } else {
         noFill();
