@@ -1,7 +1,7 @@
-let canvasW=800,canvasH=480;
+let canvasW=600,canvasH=400;
 let pitches=[];
 let hits=[];
-let bat={x:180,y:430,w:12,h:100,angle:0,swinging:false,swingSpeed:0.12,maxAngle:-1.0};
+let bat={x:180,y:canvasH-40,w:12,h:100,angle:0,swinging:false,swingSpeed:0.12,maxAngle:-1.0};
 let pitchTimer=0;
 let pitchInterval=90;
 let score=0;
