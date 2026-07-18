@@ -1,26 +1,150 @@
-let canvasW=600,canvasH=400;
-let pitches=[];
-let hits=[];
-let bat={x:180,y:canvasH-40,w:12,h:100,angle:0,swinging:false,swingSpeed:0.12,maxAngle:-1.0};
-let pitchTimer=0;
-let pitchInterval=90;
+let canvasW=480;
+let canvasH=640;
+let playerX=240;
+let playerY=600;
+let playerSize=24;
+let playerSpeed=4;
+let shootCooldown=12;
+let shootTimer=0;
+let lives=3;
 let score=0;
-let strikes=0;
-let outs=0;
-let inning=1;
-const maxOuts=3;
-let gravity=0.35;
-function spawnPitch(){let y=random(canvasH*0.35,canvasH*0.75);let r=floor(random(8,14));let speed=random(5,9);let p={x:canvasW+20,y:y,r:r,vx:-speed,hit:false};pitches.push(p);}
-function checkBatHit(p){let dx=-sin(bat.angle)*bat.h;let dy=-cos(bat.angle)*bat.h;let tipX=bat.x+dx;let tipY=bat.y+dy;let d=dist(tipX,tipY,p.x,p.y);if (!isNaN(d) && d<=p.r+14){return true;}return false;}
-function updateBat(){if (bat.swinging){bat.angle += -bat.swingSpeed; if (bat.angle <= bat.maxAngle){bat.swinging=false;bat.angle=bat.maxAngle;}} else {if (bat.angle < 0){bat.angle += bat.swingSpeed; if (bat.angle > 0){bat.angle=0;}}}}
-function updatePitches(){for (let i=pitches.length-1;i>=0;i--){let p=pitches[i];p.x += p.vx; if (!p.hit){if (checkBatHit(p)){p.hit=true;let hvx = -random(3,6);let hvy = -random(5,10);hits.push({x:p.x,y:p.y,r:p.r,vx:hvx,vy:hvy,life:0});pitches.splice(i,1);continue;} if (p.x < -60){strikes++;pitches.splice(i,1);if (strikes>=3){strikes=0;outs++;if (outs>=maxOuts){outs=0;inning++;}}}} else {pitches.splice(i,1);}}}
-function updateHits(){for (let i=hits.length-1;i>=0;i--){let h=hits[i];h.vy += gravity;h.x += h.vx;h.y += h.vy;h.life++;if (h.x < 0){score++;hits.splice(i,1);} else if (h.y > canvasH+200){hits.splice(i,1);} else if (h.life>600){hits.splice(i,1);}}}
-function drawField(){background(80,160,220);noStroke();fill(80,180,90);rect(0,canvasH*0.6,canvasW,canvasH*0.4);fill(200,180,120);ellipse(canvasW*0.5,canvasH*0.75,160,60);fill(255);ellipse(bat.x,bat.y,6,6);}
-function drawPitches(){noStroke();fill(255,80,80);for (let i=0;i<pitches.length;i++){let p=pitches[i];ellipse(p.x,p.y,p.r*2,p.r*2);}}
-function drawHits(){fill(255,220,80);noStroke();for (let i=0;i<hits.length;i++){let h=hits[i];ellipse(h.x,h.y,h.r*2,h.r*2);}}
-function drawBat(){push();translate(bat.x,bat.y);rotate(bat.angle);rectMode(CORNER);fill(120);rect(-bat.w/2,-bat.h,bat.w,bat.h);fill(180);rect(-bat.w/2,0,bat.w,12);pop();}
-function drawHUD(){fill(255);noStroke();textSize(16);textAlign(LEFT,TOP);text('Score: '+score,10,10);text('Strikes: '+strikes,10,30);text('Outs: '+outs,10,50);text('Inning: '+inning,10,70);textAlign(RIGHT,TOP);text('Pitch in: '+max(0,floor((pitchInterval-pitchTimer)/60)),canvasW-10,10);}
-function setup(){createCanvas(canvasW,canvasH);frameRate(60);}
-function draw(){drawField();pitchTimer++;if (pitchTimer>=pitchInterval){spawnPitch();pitchTimer=0;pitchInterval=floor(random(60,120));}updateBat();updatePitches();updateHits();drawPitches();drawHits();drawBat();drawHUD();}
-function keyPressed(){if (key === ' ' || keyCode === 32){if (!bat.swinging && bat.angle===0){bat.swinging=true;}}}
-function mousePressed(){if (!bat.swinging && bat.angle===0){bat.swinging=true;}}
+let bullets=[];
+let enemies=[];
+let spawnTimer=0;
+let spawnInterval=60;
+let gameState="play";
+let maxEnemies=8;
+function spawnEnemy(){
+  let ex=random(20,canvasW-20);
+  let ey=-20;
+  let ev=random(1,2.5);
+  let es=floor(random(14,28));
+  let enemy={x:ex,y:ey,vy:ev,size:es,hp:1};
+  enemies.push(enemy);
+}
+function updateBullets(){
+  for(let i=bullets.length-1;i>=0;i--){
+    let b=bullets[i];
+    b.y += b.vy;
+    if(b.y < -10){
+      bullets.splice(i,1);
+    }
+  }
+}
+function updateEnemies(){
+  for(let i=enemies.length-1;i>=0;i--){
+    let e=enemies[i];
+    e.y += e.vy;
+    if(e.y > canvasH + 30){
+      enemies.splice(i,1);
+      lives -= 1;
+      if(lives <= 0){
+        gameState = "gameover";
+      }
+    }
+  }
+}
+function handleCollisions(){
+  for(let i=bullets.length-1;i>=0;i--){
+    let b=bullets[i];
+    for(let j=enemies.length-1;j>=0;j--){
+      let e=enemies[j];
+      let dx=b.x - e.x;
+      let dy=b.y - e.y;
+      let r=b.size/2 + e.size/2;
+      if(dx*dx + dy*dy <= r*r){
+        bullets.splice(i,1);
+        enemies.splice(j,1);
+        score += 10;
+        break;
+      }
+    }
+  }
+  for(let i=enemies.length-1;i>=0;i--){
+    let e=enemies[i];
+    let dx=e.x - playerX;
+    let dy=e.y - playerY;
+    let r=e.size/2 + playerSize/2;
+    if(dx*dx + dy*dy <= r*r){
+      enemies.splice(i,1);
+      lives -= 1;
+      if(lives <= 0) gameState = "gameover";
+    }
+  }
+}
+function drawHUD(){
+  fill(255);
+  textAlign(LEFT,TOP);
+  textSize(12);
+  text("Score: "+score,10,10);
+  text("Lives: "+lives,10,30);
+  if(gameState === "gameover"){
+    textAlign(CENTER,CENTER);
+    textSize(32);
+    fill(255,80,80);
+    text("Game Over",canvasW/2,canvasH/2 - 20);
+    textSize(16);
+    fill(255);
+    text("Press R to Restart",canvasW/2,canvasH/2 + 20);
+  }
+}
+function resetGame(){
+  score = 0;
+  lives = 3;
+  bullets = [];
+  enemies = [];
+  playerX = canvasW/2;
+  playerY = canvasH - 40;
+  spawnTimer = 0;
+  spawnInterval = 60;
+  gameState = "play";
+}
+function setup(){
+  createCanvas(canvasW,canvasH);
+  noStroke();
+  textFont('Helvetica');
+}
+function draw(){
+  background(12,18,28);
+  if(gameState === "play"){
+    if(keyIsDown(37) || keyIsDown(65)){
+      playerX -= playerSpeed;
+    }
+    if(keyIsDown(39) || keyIsDown(68)){
+      playerX += playerSpeed;
+    }
+    playerX = constrain(playerX, playerSize/2, canvasW - playerSize/2);
+    if(shootTimer > 0) shootTimer -= 1;
+    if(keyIsDown(32) && shootTimer <= 0){
+      bullets.push({x:playerX,y:playerY - playerSize/2,vy:-8,size:6});
+      shootTimer = shootCooldown;
+    }
+    spawnTimer += 1;
+    if(spawnTimer >= spawnInterval && enemies.length < maxEnemies){
+      spawnEnemy();
+      spawnTimer = 0;
+      if(spawnInterval > 20) spawnInterval -= 1;
+    }
+    updateBullets();
+    updateEnemies();
+    handleCollisions();
+    fill(80,180,255);
+    ellipse(playerX,playerY,playerSize,playerSize);
+    for(let i=0;i<bullets.length;i++){
+      let b=bullets[i];
+      fill(255,220,60);
+      ellipse(b.x,b.y,b.size,b.size);
+    }
+    for(let i=0;i<enemies.length;i++){
+      let e=enemies[i];
+      fill(255,100,100);
+      ellipse(e.x,e.y,e.size,e.size);
+    }
+    drawHUD();
+  } else {
+    drawHUD();
+    if(keyIsDown(82)){
+      resetGame();
+    }
+  }
+}
