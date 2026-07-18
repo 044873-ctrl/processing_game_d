@@ -1,19 +1,23 @@
-let W=480,H=640;
-let playerSize=28;
-let playerX;
-let playerY;
-let playerSpeed=6;
-let bullets=[];
-let enemies=[];
-let enemySpawnRate=60;
-let spawnTimer=0;
+let cols=10;
+let rows=20;
+let cell=30;
+let grid=[];
+let shapes=[];
+let colors=[];
+let current=null;
+let dropCounter=0;
+let dropInterval=30;
 let score=0;
-let lives=3;
-let shotCooldown=12;
-let shotTimer=0;
-function spawnEnemy(){let ex=random(20,W-20);let es=random(16,34);let ev=random(1.2,3.0);let e={x:ex,y:-es,size:es,vy:ev,health:1};enemies.push(e);}
-function shoot(){if(shotTimer<=0){let b={x:playerX,y:playerY-playerSize*0.5,vy:-9,size:6};bullets.push(b);shotTimer=shotCooldown;}}
-function resetGame(){playerX=W/2;playerY=H-40;bullets=[];enemies=[];score=0;lives=3;enemySpawnRate=60;shotTimer=0;spawnTimer=0;}
-function checkCollisions(){for(let i=bullets.length-1;i>=0;i--){let b=bullets[i];if(b.y+b.size<0){bullets.splice(i,1);continue;}for(let j=enemies.length-1;j>=0;j--){let e=enemies[j];let dx=b.x-e.x;let dy=b.y-e.y;let distSq=dx*dx+dy*dy;let r=(b.size+e.size)*0.5;let rSq=r*r;if(distSq<=rSq){bullets.splice(i,1);enemies.splice(j,1);score+=10;break;}}}for(let k=enemies.length-1;k>=0;k--){let e=enemies[k];if(e.y-e.size>H){enemies.splice(k,1);lives-=1;if(lives<0){resetGame();}}}}
-function setup(){createCanvas(W,H);playerX=W/2;playerY=H-40;textAlign(CENTER,CENTER);textSize(16);}
-function draw(){background(12,12,20);if(keyIsDown(LEFT_ARROW)||keyIsDown(65)){playerX-=playerSpeed;}if(keyIsDown(RIGHT_ARROW)||keyIsDown(68)){playerX+=playerSpeed;}playerX=constrain(playerX,playerSize*0.5,W-playerSize*0.5);if(shotTimer>0){shotTimer-=1;}if(keyIsDown(32)){shoot();}spawnTimer+=1;if(spawnTimer>=enemySpawnRate){spawnTimer=0;spawnEnemy();if(enemySpawnRate>18){enemySpawnRate-=0.5;}}for(let i=enemies.length-1;i>=0;i--){let e=enemies[i];e.y+=e.vy;fill(180,60,60);noStroke();ellipse(e.x,e.y,e.size,e.size);}for(let i=bullets.length-1;i>=0;i--){let b=bullets[i];b.y+=b.vy;fill(200,200,50);noStroke();ellipse(b.x,b.y,b.size,b.size);}checkCollisions();fill(100,200,240);noStroke();rectMode(CENTER);rect(playerX,playerY,playerSize,playerSize);fill(255);text('Score: '+score,60,20);text('Lives: '+lives,W-60,20);if(frameCount%240===0){let bonus={x:random(30,W-30),y:-10,size:18,vy:2};enemies.push(bonus);}if(lives<=0){resetGame();}}
+let isGameOver=false;
+function createEmptyGrid(){let g=[];for(let y=0;y<rows;y++){let row=[];for(let x=0;x<cols;x++){row.push(0);}g.push(row);}return g;}
+function defineShapes(){shapes=[];colors=[];colors.push([0,255,255]);colors.push([255,255,0]);colors.push([128,0,128]);colors.push([255,165,0]);colors.push([0,0,255]);colors.push([0,255,0]);colors.push([255,0,0]);shapes.push([[[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]],[[0,0,1,0],[0,0,1,0],[0,0,1,0],[0,0,1,0]]]);shapes.push([[[0,0,0,0],[0,1,1,0],[0,1,1,0],[0,0,0,0]]]);shapes.push([[[0,0,0,0],[0,1,0,0],[1,1,1,0],[0,0,0,0]],[[0,1,0,0],[0,1,1,0],[0,1,0,0],[0,0,0,0]],[[0,0,0,0],[0,0,0,0],[1,1,1,0],[0,1,0,0]],[[0,1,0,0],[1,1,0,0],[0,1,0,0],[0,0,0,0]]]);shapes.push([[[0,0,0,0],[0,0,1,0],[1,1,1,0],[0,0,0,0]],[[0,1,1,0],[0,1,0,0],[0,1,0,0],[0,0,0,0]],[[0,0,0,0],[0,0,0,0],[1,1,1,0],[1,0,0,0]],[[0,1,0,0],[0,1,0,0],[1,1,0,0],[0,0,0,0]]]);shapes.push([[[0,0,0,0],[1,1,1,0],[1,0,0,0],[0,0,0,0]],[[0,1,0,0],[0,1,0,0],[0,1,1,0],[0,0,0,0]],[[0,0,0,0],[0,0,1,0],[1,1,1,0],[0,0,0,0]],[[1,1,0,0],[0,1,0,0],[0,1,0,0],[0,0,0,0]]]);shapes.push([[[0,0,0,0],[0,1,1,0],[1,1,0,0],[0,0,0,0]],[[0,1,0,0],[0,1,1,0],[0,0,1,0],[0,0,0,0]]]);shapes.push([[[0,0,0,0],[1,1,0,0],[0,1,1,0],[0,0,0,0]],[[0,0,1,0],[0,1,1,0],[0,1,0,0],[0,0,0,0]]]);}
+function collides(mat,x,y){for(let i=0;i<4;i++){for(let j=0;j<4;j++){if(mat[i][j]===1){let gx=x+j;let gy=y+i;if(gx<0||gx>=cols||gy<0||gy>=rows) return true;if(grid[gy][gx]!==0) return true;}}}return false;}
+function spawnPiece(){let id=floor(random(0,shapes.length));let rot=0;let mat=shapes[id][rot];let x=3;let y=0;current={id:id,rot:rot,x:x,y:y,mat:mat};if(collides(current.mat,current.x,current.y)){isGameOver=true;noLoop();}}
+function rotatePiece(){if(current===null) return;let next=(current.rot+1)%shapes[current.id].length;let nextMat=shapes[current.id][next];if(!collides(nextMat,current.x,current.y)){current.rot=next;current.mat=nextMat;}}
+function movePiece(dx){if(current===null) return;current.x+=dx;if(collides(current.mat,current.x,current.y)){current.x-=dx;}}
+function softDrop(){if(current===null) return;current.y+=1;if(collides(current.mat,current.x,current.y)){current.y-=1;mergePiece();} else {score+=1;}dropCounter=0;}
+function mergePiece(){for(let i=0;i<4;i++){for(let j=0;j<4;j++){if(current.mat[i][j]===1){let gx=current.x+j;let gy=current.y+i;if(gy>=0&&gy<rows&&gx>=0&&gx<cols){grid[gy][gx]=current.id+1;}}}}clearLines();spawnPiece();}
+function clearLines(){let lines=0;for(let y=rows-1;y>=0;y--){let full=true;for(let x=0;x<cols;x++){if(grid[y][x]===0){full=false;break;}}if(full){grid.splice(y,1);let newRow=[];for(let k=0;k<cols;k++) newRow.push(0);grid.unshift(newRow);lines++;y++;}}if(lines>0){score+=lines*100;}}
+function setup(){createCanvas(300,600);grid=createEmptyGrid();defineShapes();spawnPiece();}
+function draw(){background(20);dropCounter++;if(!isGameOver&&dropCounter>=dropInterval){current.y+=1;if(collides(current.mat,current.x,current.y)){current.y-=1;mergePiece();}dropCounter=0;}stroke(50);for(let y=0;y<rows;y++){for(let x=0;x<cols;x++){let val=grid[y][x];if(val===0){fill(30);} else {let c=colors[val-1];fill(c[0],c[1],c[2]);}rect(x*cell,y*cell,cell,cell);}}if(current!==null){for(let i=0;i<4;i++){for(let j=0;j<4;j++){if(current.mat[i][j]===1){let gx=current.x+j;let gy=current.y+i;if(gy>=0&&gy<rows&&gx>=0&&gx<cols){let c=colors[current.id];fill(c[0],c[1],c[2]);rect(gx*cell,gy*cell,cell,cell);}}}}}fill(255);noStroke();textSize(16);text('Score: '+score,5,16);if(isGameOver){fill(0,150);rect(0,0,width,height);fill(255);textSize(32);text('Game Over',50,height/2);}}
+function keyPressed(){if(isGameOver) return;if(keyCode===37){movePiece(-1);} else if(keyCode===39){movePiece(1);} else if(keyCode===40){softDrop();} else if(keyCode===38){rotatePiece();}}
