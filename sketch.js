@@ -1,18 +1,22 @@
 let paddle={x:200,y:570,w:90,h:12};
 let ball={x:200,y:300,r:6,vx:4,vy:-5};
-let ballSpeed=Math.sqrt(4*4+(-5)*(-5));
+let ballSpeed=Math.sqrt(ball.vx*ball.vx+ball.vy*ball.vy);
 let rows=6,cols=7;
 let blocks=[];
 let blockColors=["#ff6666","#ffcc66","#ffff66","#66ff66","#66ccff","#cc66ff"];
 let particles=[];
 let score=0;
 let gameOver=false;
-function setup(){
-createCanvas(400,600);
-initBlocks();
-textSize(16);
-textAlign(LEFT,TOP);
-noStroke();
+let lastSpeedIncreaseTime=0;
+let speedMultiplier=1.1;
+let speedInterval=5000;
+function clamp(v,a,b){return v<a? a : v>b? b : v;}
+function circleRectCollision(cx,cy,r,rx,ry,rw,rh){
+let closestX=clamp(cx,rx,rx+rw);
+let closestY=clamp(cy,ry,ry+rh);
+let dx=cx-closestX;
+let dy=cy-closestY;
+return dx*dx+dy*dy<=r*r+1e-6;
 }
 function initBlocks(){
 let marginX=20;
@@ -29,8 +33,104 @@ blocks.push({x:bx,y:by,w:blockW,h:blockH,color:bcolor});
 }
 }
 }
+function spawnParticles(px,py){
+for(let i=0;i<3;i++){
+let vx=(Math.random()*2-1)*2;
+let vy=(Math.random()*2-1)*2;
+particles.push({x:px,y:py,vx:vx,vy:vy,life:15,r:3});
+}
+}
+function updateParticles(){
+for(let i=particles.length-1;i>=0;i--){
+let p=particles[i];
+p.x+=p.vx;
+p.y+=p.vy;
+p.life-=1;
+if(p.life<=0){particles.splice(i,1);}
+}
+}
+function drawParticles(){
+for(let i=0;i<particles.length;i++){
+let p=particles[i];
+let alpha=map(p.life,0,15,0,255);
+fill(255,200,0,alpha);
+ellipse(p.x,p.y,p.r*2,p.r*2);
+}
+}
+function drawBlocks(){
+for(let i=0;i<blocks.length;i++){
+let b=blocks[i];
+fill(b.color);
+rect(b.x,b.y,b.w,b.h);
+}
+}
+function drawUI(){
+fill(255);
+text("Score: "+score,8,8);
+}
+function updatePaddle(){
+paddle.x=constrain(mouseX,paddle.w/2,width-paddle.w/2);
+}
+function drawPaddle(){
+fill(200);
+rect(paddle.x-paddle.w/2,paddle.y-paddle.h/2,paddle.w,paddle.h,4);
+}
+function increaseSpeed(){
+let old=ballSpeed;
+ballSpeed *= speedMultiplier;
+if(old>0){
+let scale=ballSpeed/old;
+ball.vx *= scale;
+ball.vy *= scale;
+}
+}
+function updateBall(){
+if(gameOver){return;}
+ball.x+=ball.vx;
+ball.y+=ball.vy;
+if(ball.x - ball.r < 0){ball.x=ball.r; ball.vx = Math.abs(ball.vx);}
+if(ball.x + ball.r > width){ball.x = width - ball.r; ball.vx = -Math.abs(ball.vx);}
+if(ball.y - ball.r < 0){ball.y = ball.r; ball.vy = Math.abs(ball.vy);}
+if(ball.y - ball.r > height){gameOver=true;}
+if(ball.vy>0 && circleRectCollision(ball.x,ball.y,ball.r,paddle.x-paddle.w/2,paddle.y-paddle.h/2,paddle.w,paddle.h)){
+let rel=(ball.x - paddle.x)/(paddle.w/2);
+if(rel < -1){rel = -1;}else if(rel > 1){rel = 1;}
+let angle = rel * (Math.PI/3);
+ball.vx = ballSpeed * Math.sin(angle);
+ball.vy = -Math.abs(ballSpeed * Math.cos(angle));
+ball.y = paddle.y - paddle.h/2 - ball.r - 0.1;
+}
+}
+function handleBlockCollisions(){
+for(let i=blocks.length-1;i>=0;i--){
+let b=blocks[i];
+if(circleRectCollision(ball.x,ball.y,ball.r,b.x,b.y,b.w,b.h)){
+spawnParticles(b.x + b.w/2,b.y + b.h/2);
+blocks.splice(i,1);
+score += 10;
+ball.vy = -ball.vy;
+break;
+}
+}
+}
+function drawBall(){
+fill(255);
+ellipse(ball.x,ball.y,ball.r*2,ball.r*2);
+}
+function setup(){
+createCanvas(400,600);
+initBlocks();
+textSize(16);
+textAlign(LEFT,TOP);
+noStroke();
+lastSpeedIncreaseTime = millis();
+}
 function draw(){
 background(30);
+while(millis() - lastSpeedIncreaseTime >= speedInterval){
+increaseSpeed();
+lastSpeedIncreaseTime += speedInterval;
+}
 updatePaddle();
 drawPaddle();
 updateBall();
@@ -49,86 +149,4 @@ textSize(16);
 textAlign(LEFT,TOP);
 }
 }
-function updatePaddle(){
-paddle.x=constrain(mouseX,paddle.w/2,width - paddle.w/2);
-}
-function drawPaddle(){
-fill(200);
-rect(paddle.x - paddle.w/2,paddle.y - paddle.h/2,paddle.w,paddle.h,4);
-}
-function updateBall(){
-if(gameOver){return;}
-ball.x += ball.vx;
-ball.y += ball.vy;
-if(ball.x - ball.r < 0){ball.x = ball.r; ball.vx = Math.abs(ball.vx);}
-if(ball.x + ball.r > width){ball.x = width - ball.r; ball.vx = -Math.abs(ball.vx);}
-if(ball.y - ball.r < 0){ball.y = ball.r; ball.vy = Math.abs(ball.vy);}
-if(ball.y - ball.r > height){gameOver = true;}
-if(ball.vy > 0 && circleRectCollision(ball.x,ball.y,ball.r,paddle.x - paddle.w/2,paddle.y - paddle.h/2,paddle.w,paddle.h)){
-let rel = (ball.x - paddle.x)/(paddle.w/2);
-if(rel < -1){rel = -1;}else if(rel > 1){rel = 1;}
-let angle = rel * (Math.PI/3);
-ball.vx = ballSpeed * Math.sin(angle);
-ball.vy = -Math.abs(ballSpeed * Math.cos(angle));
-ball.y = paddle.y - paddle.h/2 - ball.r - 0.1;
-}
-}
-function drawBall(){
-fill(255);
-ellipse(ball.x,ball.y,ball.r*2,ball.r*2);
-}
-function handleBlockCollisions(){
-for(let i=blocks.length - 1;i>=0;i--){
-let b = blocks[i];
-if(circleRectCollision(ball.x,ball.y,ball.r,b.x,b.y,b.w,b.h)){
-spawnParticles(b.x + b.w/2,b.y + b.h/2);
-blocks.splice(i,1);
-score += 10;
-ball.vy = -ball.vy;
-break;
-}
-}
-}
-function drawBlocks(){
-for(let i=0;i<blocks.length;i++){
-let b=blocks[i];
-fill(b.color);
-rect(b.x,b.y,b.w,b.h);
-}
-}
-function spawnParticles(px,py){
-for(let i=0;i<3;i++){
-let vx = (Math.random()*2 - 1)*2;
-let vy = (Math.random()*2 - 1)*2;
-particles.push({x:px,y:py,vx:vx,vy:vy,life:15,r:3});
-}
-}
-function updateParticles(){
-for(let i=particles.length - 1;i>=0;i--){
-let p = particles[i];
-p.x += p.vx;
-p.y += p.vy;
-p.life -= 1;
-if(p.life <= 0){particles.splice(i,1);}
-}
-}
-function drawParticles(){
-for(let i=0;i<particles.length;i++){
-let p=particles[i];
-let alpha = map(p.life,0,15,0,255);
-fill(255,200,0,alpha);
-ellipse(p.x,p.y,p.r*2,p.r*2);
-}
-}
-function drawUI(){
-fill(255);
-text("Score: " + score,8,8);
-}
-function clamp(v,a,b){return v<a? a : v>b? b : v;}
-function circleRectCollision(cx,cy,r,rx,ry,rw,rh){
-let closestX = clamp(cx, rx, rx + rw);
-let closestY = clamp(cy, ry, ry + rh);
-let dx = cx - closestX;
-let dy = cy - closestY;
-return dx*dx + dy*dy <= r*r + 1e-6;
-}
+
